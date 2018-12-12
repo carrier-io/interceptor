@@ -1,0 +1,2 @@
+CONTAINER_CPU_QUOTA = 1000000000  # nano fraction of single core
+CONTAINER_MEMORY_QUOTA = '1g'
