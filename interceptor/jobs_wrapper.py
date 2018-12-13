@@ -53,7 +53,14 @@ class JobsWrapper(object):
 
     @staticmethod
     def perfmeter(container, execution_params, job_name, redis_connection, *args, **kwargs):
-        pass
+        client = docker.from_env()
+        redis_connection = ''
+        client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                              nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                              command=f"{execution_params['jmeter_execution_string']}",
+                              environment={"redis_connection": redis_connection},
+                              oom_kill_disable=True, remove=True)
+        return True, "Done"
 
     @staticmethod
     def perfgatling(container, execution_params, job_name, redis_connection, *args, **kwargs):
