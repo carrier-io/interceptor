@@ -20,11 +20,12 @@ REDIS_USER = environ.get('REDIS_USER', '')
 REDIS_PASSWORD = environ.get('REDIS_PASSWORD', 'password')
 REDIS_HOST = environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = environ.get('REDIS_PORT', '6379')
+REDIS_DB = environ.get('REDIS_DB', 1)
 
 
 app = Celery('CarrierExecutor',
-             broker=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1',
-             backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1',
+             broker=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+             backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              include=['celery'])
 
 
@@ -32,11 +33,11 @@ app.conf.update(timezone='UTC', result_expires=1800)
 
 
 @app.task(name="tasks.execute", acks_late=True)
-def execute_job(job_type, container, execution_params, job_name):
+def execute_job(job_type, container, execution_params, job_name, *args, **kwargs):
     redis_connection = f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{job_name.replace(" ", "")}'
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
-    return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection)
+    return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection, *args, **kwargs)
 
 
 def main():

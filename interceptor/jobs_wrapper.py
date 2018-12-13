@@ -14,12 +14,13 @@
 
 import docker
 
+from uuid import uuid4
 from interceptor import constants as c
 
 
 class JobsWrapper(object):
     @staticmethod
-    def dast(container, execution_params, job_name, redis_connection):
+    def dast(container, execution_params, job_name, redis_connection, *args, **kwargs):
         client = docker.from_env()
         required_keys = ['host', 'port', 'protocol', 'test_type']
         if not all(k in execution_params for k in required_keys):
@@ -31,7 +32,8 @@ class JobsWrapper(object):
         protocol = execution_params.get('protocol')
         project = execution_params.get('project', job_name)
         environment = execution_params.get('environment', "default")
-        client.containers.run(container, name=job_name,
+        redis_connection = ''
+        client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                               nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                               command=f"-s {execution_params['test_type']}",
                               environment={"host": host, "port": port,
@@ -42,5 +44,17 @@ class JobsWrapper(object):
         return True, "Done"
 
     @staticmethod
-    def sast(container, execution_params, job_name, redis_connection):
+    def sast(container, execution_params, job_name, redis_connection, *args, **kwargs):
+        pass
+
+    @staticmethod
+    def perfui(container, execution_params, job_name, redis_connection, *args, **kwargs):
+        pass
+
+    @staticmethod
+    def perfmeter(container, execution_params, job_name, redis_connection, *args, **kwargs):
+        pass
+
+    @staticmethod
+    def perfgatling(container, execution_params, job_name, redis_connection, *args, **kwargs):
         pass

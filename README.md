@@ -24,6 +24,8 @@ Interceptor need docker.sock to be mounted as it going to provision new containe
 
 `REDIS_PASSWORD` - is a password to your Redis server. password is default
 
+`REDIS_DB` - DB for tasks. could be helpful in multi-tenancy (default is 1)
+
 
 It require redis to be running somewhere.
 simple container can be used for that
