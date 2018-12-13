@@ -40,7 +40,7 @@ class JobsWrapper(object):
                                            "protocol": protocol, "project_name": project,
                                            "environment": environment,
                                            "redis_connection": redis_connection},
-                              oom_kill_disable=True, remove=True)
+                              remove=True)
         return True, "Done"
 
     @staticmethod
@@ -59,7 +59,7 @@ class JobsWrapper(object):
                               nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                               command=f"{execution_params['jmeter_execution_string']}",
                               environment={"redis_connection": redis_connection},
-                              oom_kill_disable=True, remove=True)
+                              remove=True)
         return True, "Done"
 
     @staticmethod
