@@ -33,8 +33,7 @@ app.conf.update(timezone='UTC', result_expires=1800)
 
 
 @app.task(name="tasks.execute", acks_late=True)
-def execute_job(job_type, container, execution_params, job_name, *args, **kwargs):
-    redis_connection = f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{job_name.replace(" ", "")}'
+def execute_job(job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
     return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection, *args, **kwargs)
