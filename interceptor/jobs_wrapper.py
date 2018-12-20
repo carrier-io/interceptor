@@ -32,7 +32,7 @@ class JobsWrapper(object):
         protocol = execution_params.get('protocol')
         project = execution_params.get('project', job_name)
         environment = execution_params.get('environment', "default")
-        redis_connection = ''
+        # redis_connection = ''
         client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                               nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                               command=f"-s {execution_params['test_type']}",
@@ -54,7 +54,7 @@ class JobsWrapper(object):
     @staticmethod
     def perfmeter(container, execution_params, job_name, redis_connection, *args, **kwargs):
         client = docker.from_env()
-        redis_connection = ''
+        #redis_connection = ''
         client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                               nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                               command=f"{execution_params['jmeter_execution_string']}",
