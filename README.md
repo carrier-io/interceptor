@@ -1,4 +1,6 @@
 # interceptor
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcarrier-io%2Finterceptor.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcarrier-io%2Finterceptor?ref=badge_shield)
+
 Task manager based on celery worker
 
 Should be installed on any machine or VM that planned to be used as a jobs executor
@@ -35,3 +37,7 @@ docker run -d -p 6379:6379 --name carrier-redis \
 ```
 
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcarrier-io%2Finterceptor.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcarrier-io%2Finterceptor?ref=badge_large)
