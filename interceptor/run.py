@@ -34,7 +34,7 @@ app = Celery('CarrierExecutor',
 app.conf.update(timezone='UTC', result_expires=1800)
 
 
-@app.task(name="tasks.execute", acks_late=True, base=AbortableTask)
+@app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
 def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
