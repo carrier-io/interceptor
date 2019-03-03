@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import docker
+from billiard.exceptions import Terminated
 
 from uuid import uuid4
 from interceptor import constants as c
@@ -58,11 +59,17 @@ class JobsWrapper(object):
     @staticmethod
     def free_style(container, execution_params, job_name, redis_connection=''):
         client = docker.from_env()
-        client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                              nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                              command=f"{execution_params['cmd']}",
-                              environment={"redis_connection": redis_connection},
-                              remove=True, tty=True, detach=False, auto_remove=True)
+        cid = client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                                    nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                    command=f"{execution_params['cmd']}",
+                                    environment={"redis_connection": redis_connection},
+                                    remove=True, tty=True, detach=True, auto_remove=True)
+        try:
+
+            cid.logs(follow=True)
+        except Terminated:
+            cid.kill(signal='SIGKTERM')
+            raise
         return True, "Done"
 
     @staticmethod
