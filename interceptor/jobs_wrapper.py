@@ -49,7 +49,7 @@ class JobsWrapper(object):
 
     @staticmethod
     def perfui(container, execution_params, job_name, redis_connection, *args, **kwargs):
-        pass
+        return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
 
     @staticmethod
     def perfmeter(container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -62,7 +62,7 @@ class JobsWrapper(object):
                               nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                               command=f"{execution_params['cmd']}",
                               environment={"redis_connection": redis_connection},
-                              remove=True)
+                              remove=True, tty=True, detach=False, auto_remove=True)
         return True, "Done"
 
     @staticmethod
