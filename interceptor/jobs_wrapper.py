@@ -64,10 +64,15 @@ class JobsWrapper(object):
                                     command=f"{execution_params['cmd']}",
                                     environment={"redis_connection": redis_connection},
                                     remove=True, tty=True, detach=True, auto_remove=True)
-        while cid.status() != "exited":
+        while cid.status != "exited":
             if app.is_aborted():
-                cid.kill(signal='SIGKTERM')
+                cid.stop(timeout=300)
                 return True, "Aborted"
+            try:
+                cid.reload()
+            except:
+                continue
+            sleep(5)
         return True, "Done"
 
     @staticmethod
