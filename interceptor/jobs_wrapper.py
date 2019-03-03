@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 import docker
-from billiard.exceptions import Terminated
+from time import sleep
 
 from uuid import uuid4
 from interceptor import constants as c
@@ -53,23 +53,21 @@ class JobsWrapper(object):
         return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def perfmeter(container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def perfmeter(container, execution_params, job_name, redis_connection='',  *args, **kwargs):
         return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def free_style(container, execution_params, job_name, redis_connection=''):
+    def free_style(container, execution_params, job_name, redis_connection='', app=None):
         client = docker.from_env()
         cid = client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                     command=f"{execution_params['cmd']}",
                                     environment={"redis_connection": redis_connection},
                                     remove=True, tty=True, detach=True, auto_remove=True)
-        try:
-
-            cid.logs(follow=True)
-        except Terminated:
-            cid.kill(signal='SIGKTERM')
-            raise
+        while cid.status() != "exited":
+            if app.is_aborted():
+                cid.kill(signal='SIGKTERM')
+                return True, "Aborted"
         return True, "Done"
 
     @staticmethod
