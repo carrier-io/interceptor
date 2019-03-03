@@ -14,6 +14,8 @@
 
 from os import environ
 from celery import Celery
+from celery.contrib.abortable import AbortableTask
+
 from interceptor.jobs_wrapper import JobsWrapper
 
 REDIS_USER = environ.get('REDIS_USER', '')
@@ -32,11 +34,12 @@ app = Celery('CarrierExecutor',
 app.conf.update(timezone='UTC', result_expires=1800)
 
 
-@app.task(name="tasks.execute", acks_late=True)
-def execute_job(job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
+@app.task(name="tasks.execute", acks_late=True, base=AbortableTask)
+def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
-    return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection, *args, **kwargs)
+    return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection,
+                                          self, *args, **kwargs)
 
 
 def main():
