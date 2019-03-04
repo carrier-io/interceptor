@@ -66,7 +66,7 @@ class JobsWrapper(object):
                                     remove=True, tty=True, detach=True, auto_remove=True)
         while cid.status != "exited":
             if app.is_aborted():
-                cid.stop(timeout=300)
+                cid.stop(timeout=60)
                 return True, "Aborted"
             try:
                 cid.reload()
