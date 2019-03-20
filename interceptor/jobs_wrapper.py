@@ -76,5 +76,5 @@ class JobsWrapper(object):
         return True, "Done"
 
     @staticmethod
-    def perfgatling(container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def perfgun(container, execution_params, job_name, redis_connection='', *args, **kwargs):
         return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
