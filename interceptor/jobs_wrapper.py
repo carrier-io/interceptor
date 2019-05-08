@@ -62,7 +62,7 @@ class JobsWrapper(object):
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
                                      environment={"redis_connection": redis_connection},
-                                     tty=True, detach=True, remove=True, auto_remove=True)
+                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
     def perfgun(container, execution_params, job_name, redis_connection='', *args, **kwargs):
