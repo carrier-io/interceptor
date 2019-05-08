@@ -22,7 +22,8 @@ autostart=true
 autorestart=true
 stopsignal=QUIT
 stopwaitsecs=20
-stopasgroup=true"""
+stopasgroup=true
+"""
 
 
 def arg_parse():

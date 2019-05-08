@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 from os import environ
+from time import sleep
 from celery import Celery
 from celery.contrib.abortable import AbortableTask
 
@@ -38,8 +39,19 @@ app.conf.update(timezone='UTC', result_expires=1800)
 def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
-    return getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection,
-                                          self, *args, **kwargs)
+    cid = getattr(JobsWrapper, job_type)(container, execution_params, job_name, redis_connection,
+                                         *args, **kwargs)
+    while cid.status != "exited":
+        if self.is_aborted():
+            cid.stop(timeout=60)
+            return True, "Aborted"
+        try:
+            cid.reload()
+            print(cid.status)
+        except:
+            break
+        sleep(10)
+    return True, "Done"
 
 
 def main():

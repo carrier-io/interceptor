@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 import docker
-from time import sleep
 
 from uuid import uuid4
 from interceptor import constants as c
@@ -57,23 +56,13 @@ class JobsWrapper(object):
         return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def free_style(container, execution_params, job_name, redis_connection='', app=None):
+    def free_style(container, execution_params, job_name, redis_connection=''):
         client = docker.from_env()
-        cid = client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                                    nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                                    command=f"{execution_params['cmd']}",
-                                    environment={"redis_connection": redis_connection},
-                                    remove=True, tty=True, detach=True, auto_remove=True)
-        while cid.status != "exited":
-            if app.is_aborted():
-                cid.stop(timeout=60)
-                return True, "Aborted"
-            try:
-                cid.reload()
-            except:
-                continue
-            sleep(5)
-        return True, "Done"
+        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                     command=f"{execution_params['cmd']}",
+                                     environment={"redis_connection": redis_connection},
+                                     tty=True, detach=True)
 
     @staticmethod
     def perfgun(container, execution_params, job_name, redis_connection='', *args, **kwargs):
