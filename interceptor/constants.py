@@ -11,6 +11,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+from os import environ
 
-CONTAINER_CPU_QUOTA = 1000000000  # nano fraction of single core
-CONTAINER_MEMORY_QUOTA = '1g'
+CONTAINER_CPU_QUOTA = environ.get('CPU_QUOTA', 1) * 1000000000  # nano fraction of single core
+CONTAINER_MEMORY_QUOTA = environ.get('RAM_QUOTA', '1g')
