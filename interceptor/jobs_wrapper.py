@@ -12,16 +12,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import docker
-
 from uuid import uuid4
 from interceptor import constants as c
 
 
 class JobsWrapper(object):
     @staticmethod
-    def dast(container, execution_params, job_name, redis_connection, *args, **kwargs):
-        client = docker.from_env()
+    def dast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
         required_keys = ['host', 'port', 'protocol', 'test_type']
         if not all(k in execution_params for k in required_keys):
             return False, "Missing required params (%s)" % ",".join(required_keys)
@@ -44,20 +41,19 @@ class JobsWrapper(object):
         return True, "Done"
 
     @staticmethod
-    def sast(container, execution_params, job_name, redis_connection, *args, **kwargs):
+    def sast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
         pass
 
     @staticmethod
-    def perfui(container, execution_params, job_name, redis_connection, *args, **kwargs):
-        return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
+    def perfui(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
+        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def perfmeter(container, execution_params, job_name, redis_connection='',  *args, **kwargs):
-        return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
+    def perfmeter(client, container, execution_params, job_name, redis_connection='',  *args, **kwargs):
+        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def free_style(container, execution_params, job_name, redis_connection=''):
-        client = docker.from_env()
+    def free_style(client, container, execution_params, job_name, redis_connection=''):
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
@@ -65,5 +61,5 @@ class JobsWrapper(object):
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
-    def perfgun(container, execution_params, job_name, redis_connection='', *args, **kwargs):
-        return JobsWrapper.free_style(container, execution_params, job_name, redis_connection)
+    def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)

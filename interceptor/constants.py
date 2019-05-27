@@ -13,5 +13,6 @@
 #   limitations under the License.
 from os import environ
 
-CONTAINER_CPU_QUOTA = int(environ.get('CPU_QUOTA', 1)) * 1000000000  # nano fraction of single core
+CPU_MULTIPLIER = 1000000000
+CONTAINER_CPU_QUOTA = int(environ.get('CPU_QUOTA', 1)) * CPU_MULTIPLIER  # nano fraction of single core
 CONTAINER_MEMORY_QUOTA = environ.get('RAM_QUOTA', '1g')
