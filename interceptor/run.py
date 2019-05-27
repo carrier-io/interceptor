@@ -47,6 +47,7 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
     cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
                                          *args, **kwargs)
     client_lowlevel = docker.APIClient(base_url='unix://var/run/docker.sock')
+    last_log = []
     while cid.status != "exited":
         if self.is_aborted():
             cid.stop(timeout=60)
@@ -59,6 +60,11 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
                   f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"])/CPU_MULTIPLIER, 2)} '
                   f'RAM: {round(float(resource_usage["memory_stats"]["usage"])/(1024*1024), 2)} Mb '
                   f'of {round(float(resource_usage["memory_stats"]["limit"])/(1024*1024), 2)} Mb')
+            logs = client_lowlevel.logs(cid.id, stream=False, tail=100).decode("utf-8", errors='ignore').split('\r\n')
+            for each in logs:
+                if each not in last_log:
+                    print(each)
+            last_log = logs
         except:
             break
         sleep(10)
