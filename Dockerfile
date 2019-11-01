@@ -12,7 +12,8 @@ COPY interceptor /tmp/interceptor
 RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
-RUN pip install git+https://github.com/celery/celery.git
+RUN pip install celery==4.3.0
+RUN pip install kombu==4.5.0
 
 SHELL ["/bin/bash", "-c"]
 
