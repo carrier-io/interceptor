@@ -50,7 +50,12 @@ class JobsWrapper(object):
 
     @staticmethod
     def perfmeter(client, container, execution_params, job_name, redis_connection='',  *args, **kwargs):
-        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
+        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                     command=f"{execution_params['cmd']}",
+                                     environment={"redis_connection": redis_connection,
+                                                  "config_yaml": execution_params['config_yaml']},
+                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
     def free_style(client, container, execution_params, job_name, redis_connection=''):
@@ -62,4 +67,18 @@ class JobsWrapper(object):
 
     @staticmethod
     def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
-        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
+        env_vars = {"redis_connection": redis_connection,
+                    "GATLING_TEST_PARAMS": execution_params['GATLING_TEST_PARAMS'],
+                    "test": execution_params['test'],
+                    "build_id": execution_params['build_id'],
+                    "config_yaml": execution_params['config_yaml']}
+        params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
+                         'influxdb_comparison', 'test_type', 'env']
+        for key in params:
+            if key in execution_params.keys():
+                env_vars[key] = execution_params[key]
+
+        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                     environment=env_vars,
+                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
