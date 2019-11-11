@@ -54,6 +54,7 @@ class JobsWrapper(object):
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
                                      environment={"redis_connection": redis_connection,
+                                                  "build_id": execution_params['build_id'],
                                                   "config_yaml": execution_params['config_yaml']},
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
