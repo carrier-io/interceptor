@@ -50,12 +50,17 @@ class JobsWrapper(object):
 
     @staticmethod
     def perfmeter(client, container, execution_params, job_name, redis_connection='',  *args, **kwargs):
+        env_vars = {"redis_connection": redis_connection,
+                    "build_id": execution_params['build_id'],
+                    "config_yaml": execution_params['config_yaml']}
+        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'test']
+        for key in params:
+            if key in execution_params.keys():
+                env_vars[key] = execution_params[key]
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
-                                     environment={"redis_connection": redis_connection,
-                                                  "build_id": execution_params['build_id'],
-                                                  "config_yaml": execution_params['config_yaml']},
+                                     environment=env_vars,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
@@ -74,7 +79,7 @@ class JobsWrapper(object):
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
         params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
-                         'influxdb_comparison', 'test_type', 'env']
+                  'influxdb_comparison', 'test_type', 'env', 'loki_host', 'loki_port', 'galloper_url', 'bucket']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
