@@ -53,7 +53,7 @@ class JobsWrapper(object):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
-        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket']
+        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket', 'additional_files']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
@@ -79,7 +79,7 @@ class JobsWrapper(object):
                     "config_yaml": execution_params['config_yaml']}
         params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
                   'influxdb_comparison', 'test_type', 'env', 'loki_host', 'loki_port', 'galloper_url', 'bucket',
-                  'test', 'results_bucket', 'artifact']
+                  'test', 'results_bucket', 'artifact', 'additional_files']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
