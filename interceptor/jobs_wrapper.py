@@ -53,7 +53,8 @@ class JobsWrapper(object):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
-        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket', 'additional_files']
+        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket', 'additional_files',
+                  'JVM_ARGS']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
