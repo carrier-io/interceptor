@@ -11,7 +11,7 @@ Should be installed on any machine or VM that planned to be used as a jobs execu
 docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock  \
       -e CPU_CORES=$CPU_CORES -e REDIS_PASSWORD=$REDIS_PASSWORD  \
       -e REDIS_HOST=$FULLHOST \
-      getcarrier/interceptor:latest
+      getcarrier/interceptor:1.5
 ```
 
 Interceptor need docker.sock to be mounted as it going to provision new containers on host os
