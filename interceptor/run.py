@@ -35,7 +35,10 @@ app = Celery('CarrierExecutor',
              include=['celery'])
 
 
-app.conf.update(timezone='UTC', result_expires=1800)
+app.conf.update(
+    timezone='UTC',
+    result_expires=1800,
+    broker_transport_options={'visibility_timeout': 57600})
 
 
 @app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
