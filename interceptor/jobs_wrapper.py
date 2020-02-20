@@ -14,6 +14,7 @@
 
 from uuid import uuid4
 from interceptor import constants as c
+import docker
 
 
 class JobsWrapper(object):
@@ -58,9 +59,15 @@ class JobsWrapper(object):
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
+        if 'mount_target' in execution_params.keys() and 'mount_source' in execution_params.keys():
+            mounts = [docker.types.Mount(target=execution_params['mount_target'],
+                                         source=execution_params['mount_source'], type='bind')]
+        else:
+            mounts = []
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
+                                     mounts=mounts,
                                      environment=env_vars,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
