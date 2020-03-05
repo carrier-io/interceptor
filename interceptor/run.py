@@ -41,8 +41,6 @@ app.conf.update(
     result_expires=1800,
     broker_transport_options={'visibility_timeout': 57600},
     worker_prefetch_multiplier=1)
-    broker_transport_options={'visibility_timeout': 57600},
-    worker_prefetch_multiplier=1)
 
 
 @app.task(name="tasks.post_process", bind=True, acks_late=False)
