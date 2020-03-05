@@ -44,7 +44,7 @@ app.conf.update(
 
 
 @app.task(name="tasks.post_process", bind=True, acks_late=False)
-def post_process(galloper_url, galloper_web_hook, bucket, prefix):
+def post_process(self, results, galloper_url, galloper_web_hook, bucket, prefix, *args, **kwargs):
     return PostProcessor(galloper_url, galloper_web_hook, bucket, prefix).results_post_processing()
 
 

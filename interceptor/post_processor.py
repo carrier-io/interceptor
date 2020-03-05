@@ -5,7 +5,7 @@ import requests
 
 class PostProcessor:
 
-    def __init__(self, galloper_url, galloper_web_hook, bucket, prefix):
+    def __init__(self, galloper_url, galloper_web_hook, bucket, prefix, *args, **kwargs):
         self.galloper_url = galloper_url
         self.galloper_web_hook = galloper_web_hook
         self.bucket = bucket
