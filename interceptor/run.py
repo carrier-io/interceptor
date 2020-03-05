@@ -21,6 +21,7 @@ from celery import Celery
 from celery.contrib.abortable import AbortableTask
 
 from interceptor.jobs_wrapper import JobsWrapper
+from interceptor.post_processor import PostProcessor
 
 REDIS_USER = environ.get('REDIS_USER', '')
 REDIS_PASSWORD = environ.get('REDIS_PASSWORD', 'password')
@@ -40,6 +41,13 @@ app.conf.update(
     result_expires=1800,
     broker_transport_options={'visibility_timeout': 57600},
     worker_prefetch_multiplier=1)
+    broker_transport_options={'visibility_timeout': 57600},
+    worker_prefetch_multiplier=1)
+
+
+@app.task(name="tasks.post_process", bind=True, acks_late=False)
+def post_process(galloper_url, galloper_web_hook, bucket, prefix):
+    return PostProcessor(galloper_url, galloper_web_hook, bucket, prefix).results_post_processing()
 
 
 @app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
