@@ -15,6 +15,7 @@
 from uuid import uuid4
 from interceptor import constants as c
 import docker
+import json
 
 
 class JobsWrapper(object):
@@ -59,24 +60,33 @@ class JobsWrapper(object):
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
-        if 'mount_target' in execution_params.keys() and 'mount_source' in execution_params.keys():
-            mounts = [docker.types.Mount(target=execution_params['mount_target'],
-                                         source=execution_params['mount_source'], type='bind')]
+        if 'mounts' in execution_params.keys():
+            mounts = json.loads(execution_params['mounts'])
+            docker_mounts = []
+            for key, value in mounts.items():
+                docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
         else:
-            mounts = []
+            docker_mounts = []
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
-                                     mounts=mounts,
+                                     mounts=docker_mounts,
                                      environment=env_vars,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
     def free_style(client, container, execution_params, job_name, redis_connection=''):
+        if 'mounts' in execution_params.keys():
+            mounts = json.loads(execution_params['mounts'])
+            docker_mounts = []
+            for key, value in mounts.items():
+                docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
+        else:
+            docker_mounts = []
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
-                                     environment={"redis_connection": redis_connection},
+                                     mounts=docker_mounts,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
