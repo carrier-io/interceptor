@@ -45,9 +45,9 @@ app.conf.update(
 
 @app.task(name="tasks.post_process", bind=True, acks_late=False)
 def post_process(self, results, galloper_url, project_id, galloper_web_hook,
-                 bucket, prefix, junit=False, *args, **kwargs):
+                 bucket, prefix, junit=False, token=None, *args, **kwargs):
     return PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
-                         prefix, junit).results_post_processing()
+                         prefix, junit, token).results_post_processing()
 
 
 @app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
