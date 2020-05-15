@@ -109,9 +109,12 @@ class JobsWrapper(object):
 
     @staticmethod
     def ui_performance(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+        chrome_container_name = f"chrome_{str(uuid4())[:8]}"
+        observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
+
         env_vars = {
-            "remote": execution_params['REMOTE'],
-            "listener": execution_params['LISTENER']
+            "remote": f"{chrome_container_name}:{execution_params['REMOTE_PORT']}",
+            "listener": f"{chrome_container_name}:{execution_params['LISTENER_PORT']}"
         }
 
         if 'TOKEN' in execution_params.keys():
@@ -120,14 +123,20 @@ class JobsWrapper(object):
         docker_mounts = []
 
         if 'mounts' in execution_params.keys():
-            mounts = json.loads(execution_params['mounts'])
-            docker_mounts = []
-            for key, value in mounts.items():
-                docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
+            for mount in execution_params['mounts']:
+                for key, value in mount.items():
+                    docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
 
-        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36], nano_cpus=c.CONTAINER_CPU_QUOTA,
+        observer_command = execution_params['cmd']
+
+        client.containers.run("getcarrier/observer-chrome:latest", name=chrome_container_name, detach=True)
+
+        return client.containers.run(container, name=observer_container_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
                                      mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                                     command=f"{execution_params['cmd']}",
+                                     command=observer_command,
                                      environment=env_vars,
                                      mounts=docker_mounts,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     links={chrome_container_name: observer_container_name},
+                                     tty=True, detach=True,
+                                     #remove=True, auto_remove=True,
+                                     user='0:0')
