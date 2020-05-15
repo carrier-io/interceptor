@@ -17,7 +17,7 @@ def test_ui_performance_task():
 
     job_name = "test_ui_perf"
 
-    container = JobsWrapper.ui_performance(client, container="spirogov/observer:0.3",
-                                           execution_params=execution_params, job_name=job_name)
+    container = JobsWrapper.observer(client, container="spirogov/observer:0.3",
+                                     execution_params=execution_params, job_name=job_name)
 
     print(container.id)

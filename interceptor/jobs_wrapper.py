@@ -108,7 +108,7 @@ class JobsWrapper(object):
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
-    def ui_performance(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
         chrome_container_name = f"chrome_{str(uuid4())[:8]}"
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
 
