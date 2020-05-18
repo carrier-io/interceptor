@@ -114,7 +114,7 @@ class JobsWrapper(object):
         env_vars = {
             "remote": execution_params['REMOTE_URL'],
             "listener": execution_params['LISTENER_URL'],
-            "GALLOPER_API_URL": execution_params["GALLOPER_API_URL"]
+            "GALLOPER_API_URL": execution_params["GALLOPER_URL"]
         }
 
         if 'TOKEN' in execution_params.keys():
