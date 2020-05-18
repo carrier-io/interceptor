@@ -109,12 +109,12 @@ class JobsWrapper(object):
 
     @staticmethod
     def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
-        chrome_container_name = f"chrome_{str(uuid4())[:8]}"
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
 
         env_vars = {
-            "remote": f"{chrome_container_name}:{execution_params['REMOTE_PORT']}",
-            "listener": f"{chrome_container_name}:{execution_params['LISTENER_PORT']}"
+            "remote": execution_params['REMOTE_URL'],
+            "listener": execution_params['LISTENER_URL'],
+            "GALLOPER_API_URL": execution_params["GALLOPER_API_URL"]
         }
 
         if 'TOKEN' in execution_params.keys():
@@ -129,14 +129,11 @@ class JobsWrapper(object):
 
         observer_command = execution_params['cmd']
 
-        client.containers.run("getcarrier/observer-chrome:latest", name=chrome_container_name, detach=True)
-
         return client.containers.run(container, name=observer_container_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
                                      mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=observer_command,
                                      environment=env_vars,
                                      mounts=docker_mounts,
-                                     links={chrome_container_name: observer_container_name},
                                      tty=True, detach=True,
-                                     #remove=True, auto_remove=True,
+                                     remove=True, auto_remove=True,
                                      user='0:0')
