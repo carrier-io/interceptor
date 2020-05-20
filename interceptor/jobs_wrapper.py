@@ -118,7 +118,7 @@ class JobsWrapper(object):
             "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"]
         }
 
-        variables = ['token', "BUCKET_NAME", "TESTS_BUCKET_NAME", "ENV", "EXPORTERS_PATH"]
+        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
 
         for var_name in variables:
             if var_name in execution_params.keys():
