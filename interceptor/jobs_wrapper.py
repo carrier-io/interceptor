@@ -112,13 +112,17 @@ class JobsWrapper(object):
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
 
         env_vars = {
-            "remote": execution_params['REMOTE_URL'],
-            "listener": execution_params['LISTENER_URL'],
-            "GALLOPER_API_URL": execution_params["GALLOPER_URL"]
+            "REMOTE_URL": execution_params['REMOTE_URL'],
+            "LISTENER_URL": execution_params['LISTENER_URL'],
+            "GALLOPER_URL": execution_params["GALLOPER_URL"],
+            "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"]
         }
 
-        if 'TOKEN' in execution_params.keys():
-            env_vars['TOKEN'] = execution_params['TOKEN']
+        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
+
+        for var_name in variables:
+            if var_name in execution_params.keys():
+                env_vars[var_name] = execution_params[var_name]
 
         docker_mounts = []
 
