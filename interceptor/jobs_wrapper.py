@@ -83,10 +83,12 @@ class JobsWrapper(object):
                 docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
         else:
             docker_mounts = []
+        command = execution_params.pop("cmd", "")
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                                     command=f"{execution_params['cmd']}",
+                                     command=command,
                                      mounts=docker_mounts,
+                                     environment=execution_params,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
 
     @staticmethod
