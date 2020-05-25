@@ -51,7 +51,7 @@ class JobsWrapper(object):
         return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
 
     @staticmethod
-    def perfmeter(client, container, execution_params, job_name, redis_connection='',  *args, **kwargs):
+    def perfmeter(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
@@ -106,3 +106,38 @@ class JobsWrapper(object):
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      environment=env_vars,
                                      tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+
+    @staticmethod
+    def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+        observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
+
+        env_vars = {
+            "REMOTE_URL": execution_params['REMOTE_URL'],
+            "LISTENER_URL": execution_params['LISTENER_URL'],
+            "GALLOPER_URL": execution_params["GALLOPER_URL"],
+            "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"]
+        }
+
+        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
+
+        for var_name in variables:
+            if var_name in execution_params.keys():
+                env_vars[var_name] = execution_params[var_name]
+
+        docker_mounts = []
+
+        if 'mounts' in execution_params.keys():
+            for mount in execution_params['mounts']:
+                for key, value in mount.items():
+                    docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
+
+        observer_command = execution_params['cmd']
+
+        return client.containers.run(container, name=observer_container_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
+                                     mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                     command=observer_command,
+                                     environment=env_vars,
+                                     mounts=docker_mounts,
+                                     tty=True, detach=True,
+                                     remove=True, auto_remove=True,
+                                     user='0:0')

@@ -58,6 +58,7 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
     client.info()
     cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
                                          *args, **kwargs)
+    print(f"Container {cid.id} status {cid.status}")
     client_lowlevel = docker.APIClient(base_url='unix://var/run/docker.sock')
     last_log = []
     while cid.status != "exited":
