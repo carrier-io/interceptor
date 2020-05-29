@@ -117,7 +117,9 @@ class JobsWrapper(object):
             "REMOTE_URL": execution_params['REMOTE_URL'],
             "LISTENER_URL": execution_params['LISTENER_URL'],
             "GALLOPER_URL": execution_params["GALLOPER_URL"],
-            "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"]
+            "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"],
+            "RESULTS_BUCKET": execution_params["RESULTS_BUCKET"],
+            "RESULTS_REPORT_NAME": execution_params["RESULTS_REPORT_NAME"]
         }
 
         variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
