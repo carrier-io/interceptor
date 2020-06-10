@@ -5,7 +5,8 @@ import requests
 
 class PostProcessor:
 
-    def __init__(self, galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None, *args, **kwargs):
+    def __init__(self, galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None,
+                 jira= False, *args, **kwargs):
         self.galloper_url = galloper_url
         self.project_id = project_id
         self.galloper_web_hook = galloper_web_hook
@@ -14,6 +15,7 @@ class PostProcessor:
         self.config_file = '{}'
         self.junit = junit
         self.token = token
+        self.jira = jira
 
     def results_post_processing(self):
         if self.galloper_web_hook:
@@ -25,7 +27,8 @@ class PostProcessor:
 
             data = {'galloper_url': self.galloper_url, 'project_id': self.project_id,
                     'config_file': json.dumps(self.config_file),
-                    'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token}
+                    'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token,
+                    'jira': self.jira}
             headers = {'content-type': 'application/json'}
             if self.token:
                 headers['Authorization'] = f'bearer {self.token}'
