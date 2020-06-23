@@ -131,6 +131,7 @@ class JobsWrapper(object):
         jira_params = execution_params.get("JIRA")
 
         if jira_params:
+            jira_params = json.loads(jira_params)
             env_vars['JIRA_URL'] = jira_params["jira_url"]
             env_vars['JIRA_USER'] = jira_params["jira_login"]
             env_vars['JIRA_PASSWORD'] = jira_params["jira_password"]
