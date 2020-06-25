@@ -122,7 +122,7 @@ class JobsWrapper(object):
             "RESULTS_REPORT_NAME": execution_params["RESULTS_REPORT_NAME"]
         }
 
-        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
+        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH", "TZ"]
 
         for var_name in variables:
             if var_name in execution_params.keys():
@@ -152,5 +152,5 @@ class JobsWrapper(object):
                                      environment=env_vars,
                                      mounts=docker_mounts,
                                      tty=True, detach=True,
-                                     remove=True, auto_remove=True,
+                                     # remove=True, auto_remove=True,
                                      user='0:0')
