@@ -115,7 +115,6 @@ class JobsWrapper(object):
 
         env_vars = {
             "REMOTE_URL": execution_params['REMOTE_URL'],
-            "LISTENER_URL": execution_params['LISTENER_URL'],
             "GALLOPER_URL": execution_params["GALLOPER_URL"],
             "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"],
             "RESULTS_BUCKET": execution_params["RESULTS_BUCKET"],
