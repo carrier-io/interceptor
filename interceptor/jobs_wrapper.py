@@ -151,5 +151,5 @@ class JobsWrapper(object):
                                      environment=env_vars,
                                      mounts=docker_mounts,
                                      tty=True, detach=True,
-                                     # remove=True, auto_remove=True,
+                                     remove=True, auto_remove=True,
                                      user='0:0')
