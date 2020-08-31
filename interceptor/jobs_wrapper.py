@@ -21,30 +21,45 @@ import json
 class JobsWrapper(object):
     @staticmethod
     def dast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
-        required_keys = ['host', 'port', 'protocol', 'test_type']
-        if not all(k in execution_params for k in required_keys):
-            return False, "Missing required params (%s)" % ",".join(required_keys)
-        if not [container] in [k.tags for k in client.images.list()]:
-            return False, "Please specify proper tag of security container e.g. getcarrier/dast:latest"
-        host = execution_params.get('host')
-        port = execution_params.get('port')
-        protocol = execution_params.get('protocol')
-        project = execution_params.get('project', job_name)
-        environment = execution_params.get('environment', "default")
-        # redis_connection = ''
-        client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                              nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                              command=f"-s {execution_params['test_type']}",
-                              environment={"host": host, "port": port,
-                                           "protocol": protocol, "project_name": project,
-                                           "environment": environment,
-                                           "redis_connection": redis_connection},
-                              remove=True)
-        return True, "Done"
+        #
+        docker_container = container
+        docker_name = f"dast_{uuid4()}"[:36]
+        docker_command = execution_params["cmd"]
+        docker_environment = {
+            "project_id": execution_params["GALLOPER_PROJECT_ID"],
+            "galloper_url": execution_params["GALLOPER_URL"],
+            "token": execution_params["GALLOPER_AUTH_TOKEN"],
+        }
+        docker_mounts = list()
+        #
+        return client.containers.run(
+            docker_container, name=docker_name,
+            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+            command=docker_command, environment=docker_environment, mounts=docker_mounts,
+            tty=True, detach=True, remove=True, auto_remove=True,
+            user="0:0"
+        )
 
     @staticmethod
     def sast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
-        pass
+        #
+        docker_container = container
+        docker_name = f"sast_{uuid4()}"[:36]
+        docker_command = execution_params["cmd"]
+        docker_environment = {
+            "project_id": execution_params["GALLOPER_PROJECT_ID"],
+            "galloper_url": execution_params["GALLOPER_URL"],
+            "token": execution_params["GALLOPER_AUTH_TOKEN"],
+        }
+        docker_mounts = list()
+        #
+        return client.containers.run(
+            docker_container, name=docker_name,
+            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+            command=docker_command, environment=docker_environment, mounts=docker_mounts,
+            tty=True, detach=True, remove=True, auto_remove=True,
+            user="0:0"
+        )
 
     @staticmethod
     def perfui(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
