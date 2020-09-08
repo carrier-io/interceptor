@@ -14,6 +14,7 @@ ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
 RUN pip install celery==4.3.0
 RUN pip install kombu==4.5.0
+RUN pip install vine==1.3.0
 
 SHELL ["/bin/bash", "-c"]
 
