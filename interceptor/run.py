@@ -50,7 +50,7 @@ def post_process(self, results, galloper_url, project_id, galloper_web_hook,
                          prefix, junit, token, integration, email_recipients).results_post_processing()
 
 
-@app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
+@app.task(name="tasks.execute", bind=True, acks_late=False, base=AbortableTask)
 def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
