@@ -15,6 +15,7 @@
 import docker
 import logging
 import logging_loki
+from multiprocessing import Queue
 
 from os import environ
 from time import sleep
@@ -37,7 +38,7 @@ app = Celery('CarrierExecutor',
              backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              include=['celery'])
 
-logger = logging.get_task_logger(__name__)
+logger = get_task_logger(__name__)
 
 @after_setup_task_logger.connect
 def setup_task_logger(logger, *args, **kwargs):
@@ -73,8 +74,8 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
         return False, "Job Type not found"
     client = docker.from_env()
     client.info()
-    logging.info(f"Executing: {job_type} on {container}")
-    logging.debug(f"Execution params: {execution_params}")
+    logger.info(f"Executing: {job_type} on {container}")
+    logger.debug(f"Execution params: {execution_params}")
     cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
                                          *args, **kwargs)
     print(f"Container {cid.id} status {cid.status}")
