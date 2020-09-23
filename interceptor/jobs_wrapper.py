@@ -57,7 +57,7 @@ class JobsWrapper(object):
             docker_container, name=docker_name,
             nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
             command=docker_command, environment=docker_environment, mounts=docker_mounts,
-            tty=True, detach=True, remove=True, auto_remove=True,
+            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=True,
             user="0:0"
         )
 
@@ -87,7 +87,7 @@ class JobsWrapper(object):
                                      command=f"{execution_params['cmd']}",
                                      mounts=docker_mounts,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def free_style(client, container, execution_params, job_name, redis_connection=''):
@@ -104,7 +104,7 @@ class JobsWrapper(object):
                                      command=command,
                                      mounts=docker_mounts,
                                      environment=execution_params,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -122,7 +122,7 @@ class JobsWrapper(object):
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -158,5 +158,5 @@ class JobsWrapper(object):
                                      environment=env_vars,
                                      mounts=docker_mounts,
                                      tty=True, detach=True,
-                                     remove=True, auto_remove=True,
+                                     remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                                      user='0:0')
