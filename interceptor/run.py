@@ -21,6 +21,7 @@ from os import environ
 from time import sleep
 from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
 from celery import Celery
+from celery import signals
 from celery.contrib.abortable import AbortableTask
 from celery.utils.log import get_task_logger
 
@@ -40,7 +41,7 @@ app = Celery('CarrierExecutor',
 
 logger = get_task_logger(__name__)
 
-@after_setup_task_logger.connect
+@signals.after_setup_task_logger.connect
 def setup_task_logger(logger, *args, **kwargs):
     if LOKI_HOST:
         handler = logging_loki.LokiQueueHandler(
