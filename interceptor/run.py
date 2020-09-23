@@ -21,6 +21,7 @@ from time import sleep
 from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
 from celery import Celery
 from celery.contrib.abortable import AbortableTask
+from celery.utils.log import get_task_logger
 
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
@@ -31,11 +32,25 @@ REDIS_HOST = environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = environ.get('REDIS_PORT', '6379')
 REDIS_DB = environ.get('REDIS_DB', 1)
 
-
 app = Celery('CarrierExecutor',
              broker=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              include=['celery'])
+
+logger = logging.get_task_logger(__name__)
+
+@after_setup_task_logger.connect
+def setup_task_logger(logger, *args, **kwargs):
+    if LOKI_HOST:
+        handler = logging_loki.LokiQueueHandler(
+            Queue(-1),
+            url=f"http://{LOKI_HOST}:{LOKI_PORT}/loki/api/v1/push",
+            tags={"application": "interceptor"},
+            version="1",
+        )
+
+        handler.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+        logger.addHandler(handler)
 
 
 app.conf.update(
@@ -89,16 +104,6 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
 
 
 def main():
-    if LOKI_HOST:
-        handler = logging_loki.LokiQueueHandler(
-            Queue(-1),
-            url=f"http://{LOKI_HOST}:{LOKI_PORT}/loki/api/v1/push",
-            tags={"application": "interceptor"},
-            version="1",
-        )
-
-        handler.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
-        logging.root.handlers = [handler]
     app.start()
 
 
