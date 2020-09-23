@@ -51,7 +51,7 @@ def setup_task_logger(logger, *args, **kwargs):
             version="1",
         )
 
-        handler.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+        logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
         logger.addHandler(handler)
 
 
