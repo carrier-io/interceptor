@@ -13,10 +13,12 @@
 #   limitations under the License.
 
 import docker
+import logging
+import logging_loki
 
 from os import environ
 from time import sleep
-from interceptor.constants import CPU_MULTIPLIER
+from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
 from celery import Celery
 from celery.contrib.abortable import AbortableTask
 
@@ -56,6 +58,8 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
         return False, "Job Type not found"
     client = docker.from_env()
     client.info()
+    logging.info(f"Executing: {job_type} on {container}")
+    logging.debug(f"Execution params: {execution_params}")
     cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
                                          *args, **kwargs)
     print(f"Container {cid.id} status {cid.status}")
@@ -85,6 +89,16 @@ def execute_job(self, job_type, container, execution_params, redis_connection, j
 
 
 def main():
+    if LOKI_HOST:
+        handler = logging_loki.LokiQueueHandler(
+            Queue(-1),
+            url=f"http://{LOKI_HOST}:{LOKI_PORT}/loki/api/v1/push",
+            tags={"application": "interceptor"},
+            version="1",
+        )
+
+        handler.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+        logging.root.handlers = [handler]
     app.start()
 
 
