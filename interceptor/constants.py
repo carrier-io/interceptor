@@ -19,4 +19,4 @@ CONTAINER_MEMORY_QUOTA = environ.get('RAM_QUOTA', '1g')
 LOKI_HOST = environ.get('LOKI_HOST', "")
 LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')
-REMOVE_CONTAINERS = True if environ("REMOVE_CONTAINERS", "True") == "True" else False
+REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" else False
