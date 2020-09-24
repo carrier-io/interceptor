@@ -13,12 +13,17 @@
 #   limitations under the License.
 
 import docker
+import logging
+import logging_loki
+from multiprocessing import Queue
 
 from os import environ
 from time import sleep
-from interceptor.constants import CPU_MULTIPLIER
+from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
 from celery import Celery
+from celery import signals
 from celery.contrib.abortable import AbortableTask
+from celery.utils.log import get_task_logger
 
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
@@ -29,11 +34,25 @@ REDIS_HOST = environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = environ.get('REDIS_PORT', '6379')
 REDIS_DB = environ.get('REDIS_DB', 1)
 
-
 app = Celery('CarrierExecutor',
              broker=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
              include=['celery'])
+
+logger = get_task_logger(__name__)
+
+@signals.after_setup_task_logger.connect
+def setup_task_logger(logger, *args, **kwargs):
+    if LOKI_HOST:
+        handler = logging_loki.LokiQueueHandler(
+            Queue(-1),
+            url=f"http://{LOKI_HOST}:{LOKI_PORT}/loki/api/v1/push",
+            tags={"application": "interceptor"},
+            version="1",
+        )
+
+        logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+        logger.addHandler(handler)
 
 
 app.conf.update(
@@ -50,33 +69,36 @@ def post_process(self, results, galloper_url, project_id, galloper_web_hook,
                          prefix, junit, token, integration, email_recipients).results_post_processing()
 
 
-@app.task(name="tasks.execute", bind=True, acks_late=True, base=AbortableTask)
+@app.task(name="tasks.execute", bind=True, acks_late=False, base=AbortableTask)
 def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
     client = docker.from_env()
     client.info()
+    logger.info(f"Executing: {job_type} on {container} with name {job_name}")
+    logger.debug(f"Execution params: {execution_params}")
     cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
                                          *args, **kwargs)
-    print(f"Container {cid.id} status {cid.status}")
+    logger.debug(f"Container {cid.id} status {cid.status}")
     client_lowlevel = docker.APIClient(base_url='unix://var/run/docker.sock')
     last_log = []
     while cid.status != "exited":
         if self.is_aborted():
             cid.stop(timeout=60)
+            logger.warning(f"Aborted: {job_type} on {container} with name {job_name}")
             return True, "Aborted"
         try:
             cid.reload()
-            print(f'Container Status: {cid.status}')
+            logger.debug(f'Container Status: {cid.status}')
             resource_usage = client_lowlevel.stats(cid.id, stream=False)
-            print(f'Container {cid.id} resource usage -- '
-                  f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"])/CPU_MULTIPLIER, 2)} '
-                  f'RAM: {round(float(resource_usage["memory_stats"]["usage"])/(1024*1024), 2)} Mb '
-                  f'of {round(float(resource_usage["memory_stats"]["limit"])/(1024*1024), 2)} Mb')
+            logger.info(f'Container {cid.id} resource usage -- '
+                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"])/CPU_MULTIPLIER, 2)} '
+                        f'RAM: {round(float(resource_usage["memory_stats"]["usage"])/(1024*1024), 2)} Mb '
+                        f'of {round(float(resource_usage["memory_stats"]["limit"])/(1024*1024), 2)} Mb')
             logs = client_lowlevel.logs(cid.id, stream=False, tail=100).decode("utf-8", errors='ignore').split('\r\n')
             for each in logs:
                 if each not in last_log:
-                    print(each)
+                    logger.info(each)
             last_log = logs
         except:
             break

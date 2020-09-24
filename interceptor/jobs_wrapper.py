@@ -21,30 +21,45 @@ import json
 class JobsWrapper(object):
     @staticmethod
     def dast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
-        required_keys = ['host', 'port', 'protocol', 'test_type']
-        if not all(k in execution_params for k in required_keys):
-            return False, "Missing required params (%s)" % ",".join(required_keys)
-        if not [container] in [k.tags for k in client.images.list()]:
-            return False, "Please specify proper tag of security container e.g. getcarrier/dast:latest"
-        host = execution_params.get('host')
-        port = execution_params.get('port')
-        protocol = execution_params.get('protocol')
-        project = execution_params.get('project', job_name)
-        environment = execution_params.get('environment', "default")
-        # redis_connection = ''
-        client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                              nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                              command=f"-s {execution_params['test_type']}",
-                              environment={"host": host, "port": port,
-                                           "protocol": protocol, "project_name": project,
-                                           "environment": environment,
-                                           "redis_connection": redis_connection},
-                              remove=True)
-        return True, "Done"
+        #
+        docker_container = container
+        docker_name = f"dast_{uuid4()}"[:36]
+        docker_command = execution_params["cmd"]
+        docker_environment = {
+            "project_id": execution_params["GALLOPER_PROJECT_ID"],
+            "galloper_url": execution_params["GALLOPER_URL"],
+            "token": execution_params["GALLOPER_AUTH_TOKEN"],
+        }
+        docker_mounts = list()
+        #
+        return client.containers.run(
+            docker_container, name=docker_name,
+            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+            command=docker_command, environment=docker_environment, mounts=docker_mounts,
+            tty=True, detach=True, remove=True, auto_remove=True,
+            user="0:0"
+        )
 
     @staticmethod
     def sast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
-        pass
+        #
+        docker_container = container
+        docker_name = f"sast_{uuid4()}"[:36]
+        docker_command = execution_params["cmd"]
+        docker_environment = {
+            "project_id": execution_params["GALLOPER_PROJECT_ID"],
+            "galloper_url": execution_params["GALLOPER_URL"],
+            "token": execution_params["GALLOPER_AUTH_TOKEN"],
+        }
+        docker_mounts = list()
+        #
+        return client.containers.run(
+            docker_container, name=docker_name,
+            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+            command=docker_command, environment=docker_environment, mounts=docker_mounts,
+            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=True,
+            user="0:0"
+        )
 
     @staticmethod
     def perfui(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
@@ -72,7 +87,7 @@ class JobsWrapper(object):
                                      command=f"{execution_params['cmd']}",
                                      mounts=docker_mounts,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def free_style(client, container, execution_params, job_name, redis_connection=''):
@@ -89,7 +104,7 @@ class JobsWrapper(object):
                                      command=command,
                                      mounts=docker_mounts,
                                      environment=execution_params,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -107,26 +122,17 @@ class JobsWrapper(object):
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=True, auto_remove=True, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
 
     @staticmethod
     def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
+        env_vars = {}
+        exclude_vars = ["cmd"]
 
-        env_vars = {
-            "REMOTE_URL": execution_params['REMOTE_URL'],
-            "LISTENER_URL": execution_params['LISTENER_URL'],
-            "GALLOPER_URL": execution_params["GALLOPER_URL"],
-            "GALLOPER_PROJECT_ID": execution_params["GALLOPER_PROJECT_ID"],
-            "RESULTS_BUCKET": execution_params["RESULTS_BUCKET"],
-            "RESULTS_REPORT_NAME": execution_params["RESULTS_REPORT_NAME"]
-        }
-
-        variables = ['token', "REPORTS_BUCKET", "TESTS_BUCKET", "ENV", "EXPORTERS_PATH"]
-
-        for var_name in variables:
-            if var_name in execution_params.keys():
-                env_vars[var_name] = execution_params[var_name]
+        for k, v in execution_params.items():
+            if k not in exclude_vars:
+                env_vars[k] = v
 
         jira_params = execution_params.get("JIRA")
 
@@ -152,5 +158,5 @@ class JobsWrapper(object):
                                      environment=env_vars,
                                      mounts=docker_mounts,
                                      tty=True, detach=True,
-                                     remove=True, auto_remove=True,
+                                     remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                                      user='0:0')
