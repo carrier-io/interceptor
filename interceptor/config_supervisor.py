@@ -15,6 +15,7 @@
 import argparse
 
 interceptor_conf = """[supervisord]
+nodaemon=true
 
 [program:worker]
 command=celery -A interceptor.run worker -l info -c%s --max-tasks-per-child 1 -f /var/log/interceptor.log
