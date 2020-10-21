@@ -87,7 +87,8 @@ class JobsWrapper(object):
                                      command=f"{execution_params['cmd']}",
                                      mounts=docker_mounts,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                                     user='0:0')
 
     @staticmethod
     def free_style(client, container, execution_params, job_name, redis_connection=''):
@@ -104,7 +105,8 @@ class JobsWrapper(object):
                                      command=command,
                                      mounts=docker_mounts,
                                      environment=execution_params,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                                     user='0:0')
 
     @staticmethod
     def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -123,7 +125,8 @@ class JobsWrapper(object):
         return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      environment=env_vars,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS, user='0:0')
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                                     user='0:0')
 
     @staticmethod
     def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
@@ -143,6 +146,14 @@ class JobsWrapper(object):
             env_vars['JIRA_USER'] = jira_params["jira_login"]
             env_vars['JIRA_PASSWORD'] = jira_params["jira_password"]
             env_vars['JIRA_PROJECT'] = jira_params["jira_project"]
+
+        ado_params = execution_params.get("ADO")
+        if ado_params:
+            ado_params = json.loads(ado_params)
+            env_vars['ADO_ORGANIZATION'] = ado_params["ado_organization"]
+            env_vars['ADO_PROJECT'] = ado_params["ado_project"]
+            env_vars['ADO_TOKEN'] = ado_params["ado_token"]
+            env_vars['ADO_TEAM'] = ado_params["ado_team"]
 
         docker_mounts = []
 
