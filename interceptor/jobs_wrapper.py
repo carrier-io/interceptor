@@ -115,9 +115,9 @@ class JobsWrapper(object):
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
         params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
-                  'influxdb_comparison', 'test_type', 'env', 'loki_host', 'loki_port', 'galloper_url', 'bucket',
-                  'test', 'results_bucket', 'artifact', 'additional_files', 'save_reports', 'project_id', 'token',
-                  'compile_and_run']
+                  'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host', 'loki_port',
+                  'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact', 'additional_files', 'save_reports',
+                  'project_id', 'token', 'compile_and_run']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
