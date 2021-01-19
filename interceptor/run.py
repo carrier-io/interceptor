@@ -110,7 +110,7 @@ def execute_job(job_type, container, execution_params, job_name):
 
 
 def main():
-    app.run(queue=QUEUE_NAME, workers=int(CPU_CORES))
+    app.run(workers=int(CPU_CORES))
 
 
 if __name__ == '__main__':
