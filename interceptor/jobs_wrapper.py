@@ -20,7 +20,7 @@ import json
 
 class JobsWrapper(object):
     @staticmethod
-    def dast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
+    def dast(client, container, execution_params, job_name, *args, **kwargs):
         #
         docker_container = container
         docker_name = f"dast_{uuid4()}"[:36]
@@ -41,7 +41,7 @@ class JobsWrapper(object):
         )
 
     @staticmethod
-    def sast(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
+    def sast(client, container, execution_params, job_name, *args, **kwargs):
         #
         docker_container = container
         docker_name = f"sast_{uuid4()}"[:36]
@@ -62,11 +62,11 @@ class JobsWrapper(object):
         )
 
     @staticmethod
-    def perfui(client, container, execution_params, job_name, redis_connection, *args, **kwargs):
-        return JobsWrapper.free_style(client, container, execution_params, job_name, redis_connection)
+    def perfui(client, container, execution_params, job_name, *args, **kwargs):
+        return JobsWrapper.free_style(client, container, execution_params, job_name)
 
     @staticmethod
-    def perfmeter(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def perfmeter(client, container, execution_params, job_name, *args, **kwargs):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
@@ -91,7 +91,7 @@ class JobsWrapper(object):
                                      user='0:0')
 
     @staticmethod
-    def free_style(client, container, execution_params, job_name, redis_connection=''):
+    def free_style(client, container, execution_params, job_name):
         if 'mounts' in execution_params.keys():
             mounts = json.loads(execution_params['mounts'])
             docker_mounts = []
@@ -109,7 +109,7 @@ class JobsWrapper(object):
                                      user='0:0')
 
     @staticmethod
-    def perfgun(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def perfgun(client, container, execution_params, job_name, *args, **kwargs):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "GATLING_TEST_PARAMS": execution_params['GATLING_TEST_PARAMS'],
                     "build_id": execution_params['build_id'],
@@ -129,7 +129,7 @@ class JobsWrapper(object):
                                      user='0:0')
 
     @staticmethod
-    def observer(client, container, execution_params, job_name, redis_connection='', *args, **kwargs):
+    def observer(client, container, execution_params, job_name, *args, **kwargs):
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
         env_vars = {}
         exclude_vars = ["cmd"]

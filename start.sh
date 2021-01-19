@@ -1,4 +1,4 @@
 #!/bin/sh
 
-superconf -p $CPU_CORES
+superconf
 supervisord --configuration /etc/interceptor.conf

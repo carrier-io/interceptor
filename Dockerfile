@@ -12,9 +12,7 @@ COPY interceptor /tmp/interceptor
 RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
-RUN pip install celery==4.3.0
-RUN pip install kombu==4.5.0
-RUN pip install vine==1.3.0
+RUN pip install git+https://github.com/carrier-io/arbiter.git
 
 SHELL ["/bin/bash", "-c"]
 

@@ -13,101 +13,104 @@
 #   limitations under the License.
 
 import docker
-import logging
+import signal
 import logging_loki
 from multiprocessing import Queue
-
+from arbiter import Minion
+import logging
 from os import environ
 from time import sleep
 from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
-from celery import Celery
-from celery import signals
-from celery.contrib.abortable import AbortableTask
-from celery.utils.log import get_task_logger
 
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
 
-REDIS_USER = environ.get('REDIS_USER', '')
-REDIS_PASSWORD = environ.get('REDIS_PASSWORD', 'password')
-REDIS_HOST = environ.get('REDIS_HOST', 'localhost')
-REDIS_PORT = environ.get('REDIS_PORT', '6379')
-REDIS_DB = environ.get('REDIS_DB', 1)
+RABBIT_USER = environ.get('RABBIT_USER', 'user')
+RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
+RABBIT_HOST = environ.get('RABBIT_HOST', 'localhost')
+RABBIT_PORT = environ.get('RABBIT_PORT', '5672')
+QUEUE_NAME = environ.get('QUEUE_NAME', "default")
+CPU_CORES = environ.get('CPU_CORES', 2)
 
-app = Celery('CarrierExecutor',
-             broker=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
-             backend=f'redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
-             include=['celery'])
+app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
+             user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME)
 
-logger = get_task_logger(__name__)
-
-@signals.after_setup_task_logger.connect
-def setup_task_logger(logger, *args, **kwargs):
-    if LOKI_HOST:
-        handler = logging_loki.LokiQueueHandler(
-            Queue(-1),
-            url=f"http://{LOKI_HOST}:{LOKI_PORT}/loki/api/v1/push",
-            tags={"application": "interceptor"},
-            version="1",
-        )
-
-        logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
-        logger.addHandler(handler)
+logger = logging.getLogger("interceptor")
 
 
-app.conf.update(
-    timezone='UTC',
-    result_expires=1800,
-    broker_transport_options={'visibility_timeout': 57600},
-    worker_prefetch_multiplier=1)
+if LOKI_HOST:
+    handler = logging_loki.LokiQueueHandler(
+        Queue(-1),
+        url=f"{LOKI_HOST.replace('https://', 'http://')}:{LOKI_PORT}/loki/api/v1/push",
+        tags={"application": "interceptor"},
+        version="1",
+    )
+
+    logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+    logger.addHandler(handler)
 
 
-@app.task(name="tasks.post_process", bind=True, acks_late=False)
-def post_process(self, results, galloper_url, project_id, galloper_web_hook,
-                 bucket, prefix, junit=False, token=None, integration=[], email_recipients=None, *args, **kwargs):
+stop_task = False
+
+
+def sigterm_handler(signal, frame):
+    global stop_task
+    stop_task = True
+
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+
+
+@app.task(name="post_process")
+def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None, integration=[],
+                 email_recipients=None):
     return PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
                          prefix, junit, token, integration, email_recipients).results_post_processing()
 
 
-@app.task(name="tasks.execute", bind=True, acks_late=False, base=AbortableTask)
-def execute_job(self, job_type, container, execution_params, redis_connection, job_name, *args, **kwargs):
+@app.task(name="execute")
+def execute_job(job_type, container, execution_params, job_name):
     if not getattr(JobsWrapper, job_type):
         return False, "Job Type not found"
     client = docker.from_env()
     client.info()
     logger.info(f"Executing: {job_type} on {container} with name {job_name}")
-    logger.debug(f"Execution params: {execution_params}")
-    cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name, redis_connection,
-                                         *args, **kwargs)
-    logger.debug(f"Container {cid.id} status {cid.status}")
+    logger.info(f"Execution params: {execution_params}")
+    try:
+        cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name)
+    except:
+        return f"Failed to run docker container {container}"
+    logger.info(f"Container {cid.id} status {cid.status}")
     client_lowlevel = docker.APIClient(base_url='unix://var/run/docker.sock')
     last_log = []
     while cid.status != "exited":
-        if self.is_aborted():
+        global stop_task
+        if stop_task:
+            stop_task = False
             cid.stop(timeout=60)
-            logger.warning(f"Aborted: {job_type} on {container} with name {job_name}")
-            return True, "Aborted"
+            logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
+            return "Aborted"
         try:
             cid.reload()
-            logger.debug(f'Container Status: {cid.status}')
+            logger.info(f'Container Status: {cid.status}')
             resource_usage = client_lowlevel.stats(cid.id, stream=False)
             logger.info(f'Container {cid.id} resource usage -- '
-                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"])/CPU_MULTIPLIER, 2)} '
-                        f'RAM: {round(float(resource_usage["memory_stats"]["usage"])/(1024*1024), 2)} Mb '
-                        f'of {round(float(resource_usage["memory_stats"]["limit"])/(1024*1024), 2)} Mb')
+                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / CPU_MULTIPLIER, 2)} '
+                        f'RAM: {round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)} Mb '
+                        f'of {round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)} Mb')
             logs = client_lowlevel.logs(cid.id, stream=False, tail=100).decode("utf-8", errors='ignore').split('\r\n')
             for each in logs:
                 if each not in last_log:
-                    logger.info(each)
+                    logging.info(each)
             last_log = logs
         except:
             break
         sleep(10)
-    return True, "Done"
+    return "Done"
 
 
 def main():
-    app.start()
+    app.run(workers=int(CPU_CORES))
 
 
 if __name__ == '__main__':
