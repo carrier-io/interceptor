@@ -1,6 +1,6 @@
 FROM python:3.6-alpine
 
-RUN apk update && apk add --no-cache supervisor docker git bash
+RUN apk update && apk add --no-cache supervisor docker docker-compose git bash
 
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools

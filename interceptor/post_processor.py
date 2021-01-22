@@ -6,7 +6,7 @@ import requests
 class PostProcessor:
 
     def __init__(self, galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None,
-                 integration=[], email_recipients=None, *args, **kwargs):
+                 integration=[], email_recipients=None):
         self.galloper_url = galloper_url
         self.project_id = project_id
         self.galloper_web_hook = galloper_web_hook
@@ -34,8 +34,7 @@ class PostProcessor:
             if self.token:
                 headers['Authorization'] = f'bearer {self.token}'
 
-            r = requests.post(self.galloper_web_hook, json=data, headers=headers)
-            print(r.text)
+            requests.post(self.galloper_web_hook, json=data, headers=headers)
 
 
 
