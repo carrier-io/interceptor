@@ -24,6 +24,7 @@ from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVE
 
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
+from interceptor.lambda_executor import LambdaExecutor
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -64,8 +65,23 @@ signal.signal(signal.SIGTERM, sigterm_handler)
 @app.task(name="post_process")
 def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None, integration=[],
                  email_recipients=None):
-    return PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
-                         prefix, junit, token, integration, email_recipients).results_post_processing()
+    try:
+        PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
+                      prefix, junit, token, integration, email_recipients).results_post_processing()
+        return "Done"
+    except:
+        logger.info("Failed to run post processor")
+        return "Failed"
+
+
+@app.task(name="execute_lambda")
+def execute_lambda(task, event, galloper_url, token):
+    try:
+        LambdaExecutor(task, event, galloper_url, token).execute_lambda()
+        return "Done"
+    except:
+        logger.info(f"Failed to execute {task['task_name']} lambda")
+        return "Failed"
 
 
 @app.task(name="execute")
