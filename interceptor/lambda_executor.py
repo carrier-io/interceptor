@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 import shutil
 from json import dumps, loads
 from requests import post, get
@@ -21,24 +22,25 @@ class LambdaExecutor:
         self.token = token
 
     def execute_lambda(self):
+        lambda_id = str(uuid4())
         client = docker.from_env()
         container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             return f"Container {self.task['runtime']} is not found"
-        self.download_artifact()
-        self.create_volume(client)
-        mount = docker.types.Mount(type="volume", source=self.task['task_id'], target="/var/task")
+        self.download_artifact(lambda_id)
+        self.create_volume(client, lambda_id)
+        mount = docker.types.Mount(type="volume", source=lambda_id, target="/var/task")
         env_vars = loads(self.task.get("env_vars", "{}"))
         response = client.containers.run(f"lambci/{container_name}",
                                          command=[f"{self.task['task_handler']}", dumps(self.event)],
                                          mounts=[mount], stderr=True, remove=True,
                                          environment=env_vars)
         try:
-            volume = client.volumes.get(self.task["task_id"])
+            volume = client.volumes.get(lambda_id)
             volume.remove(force=True)
         except:
             logging.info("Failed to remove docker volume")
-        shutil.rmtree(f'/tmp/{self.task["task_id"]}', ignore_errors=True)
+        shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
         log = response.decode("utf-8", errors='ignore')
         if container_name == "lambda:python3.7":
             results = re.findall(r'({.+?})', log)[-1]
@@ -61,30 +63,27 @@ class LambdaExecutor:
             self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
             self.execute_lambda()
 
-    def download_artifact(self):
+    def download_artifact(self, lambda_id):
         try:
-            os.mkdir(f'/tmp/{self.task["task_id"]}')
+            os.mkdir(f'/tmp/{lambda_id}')
             endpoint = f'/api/v1/artifacts/{self.task["project_id"]}/{self.task["zippath"]}'
             headers = {'Authorization': f'bearer {self.token}'}
             r = get(f'{self.galloper_url}/{endpoint}', allow_redirects=True, headers=headers)
-            with open(f'/tmp/{self.task["task_id"]}/{self.task["task_id"]}', 'wb') as file_data:
+            with open(f'/tmp/{lambda_id}/{lambda_id}', 'wb') as file_data:
                 file_data.write(r.content)
         except Exception:
             print(format_exc())
 
-    def create_volume(self, client):
-        client.volumes.create(self.task['task_id'])
-        with open(f"/tmp/{self.task['task_id']}/Dockerfile", 'w') as f:
-            f.write(UNZIP_DOCKERFILE.format(localfile=self.task['task_id'], docker_path=f'{self.task["task_id"]}.zip'))
-        with open(f"/tmp/{self.task['task_id']}/docker-compose.yaml", 'w') as f:
-            f.write(UNZIP_DOCKER_COMPOSE.format(path=f"/tmp/{self.task['task_id']}",
-                                                volume=self.task['task_id'], task_id=self.task['task_id']))
+    def create_volume(self, client, lambda_id):
+        client.volumes.create(lambda_id)
+        with open(f"/tmp/{lambda_id}/Dockerfile", 'w') as f:
+            f.write(UNZIP_DOCKERFILE.format(localfile=lambda_id, docker_path=f'{lambda_id}.zip'))
+        with open(f"/tmp/{lambda_id}/docker-compose.yaml", 'w') as f:
+            f.write(UNZIP_DOCKER_COMPOSE.format(path=f"/tmp/{lambda_id}",
+                                                volume=lambda_id, task_id=lambda_id))
         cmd = ['docker-compose', 'up']
-        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True, cwd=f"/tmp/{self.task['task_id']}")
+        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True, cwd=f"/tmp/{lambda_id}")
         popen.communicate()
         cmd = ['docker-compose', 'down', '--rmi', 'all']
-        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True, cwd=f"/tmp/{self.task['task_id']}")
+        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True, cwd=f"/tmp/{lambda_id}")
         return popen.communicate()
-
-
-
