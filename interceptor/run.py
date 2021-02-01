@@ -21,7 +21,7 @@ import logging
 from os import environ
 from time import sleep
 from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
-
+from traceback import format_exc
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
 from interceptor.lambda_executor import LambdaExecutor
@@ -69,7 +69,8 @@ def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, ju
         PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
                       prefix, junit, token, integration, email_recipients).results_post_processing()
         return "Done"
-    except:
+    except Exception:
+        logger.error(format_exc())
         logger.info("Failed to run post processor")
         return "Failed"
 
@@ -79,7 +80,8 @@ def execute_lambda(task, event, galloper_url, token):
     try:
         LambdaExecutor(task, event, galloper_url, token).execute_lambda()
         return "Done"
-    except:
+    except Exception:
+        logger.error(format_exc())
         logger.info(f"Failed to execute {task['task_name']} lambda")
         return "Failed"
 
