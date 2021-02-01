@@ -31,6 +31,8 @@ class LambdaExecutor:
         self.create_volume(client, lambda_id)
         mount = docker.types.Mount(type="volume", source=lambda_id, target="/var/task")
         env_vars = loads(self.task.get("env_vars", "{}"))
+        if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event[0]:
+            env_vars.update(self.event[0]["cc_env_vars"])
         response = client.containers.run(f"lambci/{container_name}",
                                          command=[f"{self.task['task_handler']}", dumps(self.event)],
                                          mounts=[mount], stderr=True, remove=True,
