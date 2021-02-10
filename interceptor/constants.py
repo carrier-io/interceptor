@@ -15,7 +15,9 @@ from os import environ
 
 CPU_MULTIPLIER = 1000000000
 CONTAINER_CPU_QUOTA = int(environ.get('CPU_QUOTA', 1)) * CPU_MULTIPLIER  # nano fraction of single core
+BROWSERTIME_CPU_QUOTA = int(environ.get('BROWSERTIME_CPU_QUOTA', 2)) * CPU_MULTIPLIER  # nano fraction of single core
 CONTAINER_MEMORY_QUOTA = environ.get('RAM_QUOTA', '1g')
+BROWSERTIME_MEMORY_QUOTA = environ.get('BROWSERTIME_MEMORY_QUOTA', '4g')
 LOKI_HOST = environ.get('LOKI_HOST', "")
 LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')

@@ -20,7 +20,7 @@ from arbiter import Minion
 import logging
 from os import environ
 from time import sleep
-from interceptor.constants import CPU_MULTIPLIER, LOKI_PORT, LOKI_HOST, LOG_LEVEL
+from interceptor import constants as c
 from traceback import format_exc
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
@@ -39,15 +39,15 @@ app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
 logger = logging.getLogger("interceptor")
 
 
-if LOKI_HOST:
+if c.LOKI_HOST:
     handler = logging_loki.LokiQueueHandler(
         Queue(-1),
-        url=f"{LOKI_HOST.replace('https://', 'http://')}:{LOKI_PORT}/loki/api/v1/push",
+        url=f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
         tags={"application": "interceptor"},
         version="1",
     )
 
-    logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+    logger.setLevel(logging.INFO if c.LOG_LEVEL == 'info' else logging.DEBUG)
     logger.addHandler(handler)
 
 
@@ -72,6 +72,31 @@ def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, ju
     except Exception:
         logger.error(format_exc())
         logger.info("Failed to run post processor")
+        return "Failed"
+
+
+@app.task(name="browsertime")
+def browsertime(container, galloper_url, project_id, token, bucket, filename, view='1920x1080', tests='1', cmd=''):
+
+    try:
+        client = docker.from_env()
+        env_vars = {"galloper_url": galloper_url, "project_id": project_id, "token": token, "bucket": bucket,
+                    "filename": filename, "view": view, "tests": tests}
+
+        cid = getattr(JobsWrapper, 'browsertime')(client, container, env_vars, cmd)
+        while cid.status != "exited":
+            logger.info(f"Executing: {container}")
+            logger.info(f"Execution params: {cmd}")
+            logger.info(f"Container {cid.id} status {cid.status}")
+            try:
+                cid.reload()
+            except:
+                break
+            sleep(10)
+        return "Done"
+    except Exception:
+        logger.error(format_exc())
+        logger.info("Failed to run browsertime task")
         return "Failed"
 
 
@@ -107,13 +132,13 @@ def execute_job(job_type, container, execution_params, job_name):
             stop_task = False
             cid.stop(timeout=60)
             logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
-            return "Aborted"
+            exit(0)
         try:
             cid.reload()
             logger.info(f'Container Status: {cid.status}')
             resource_usage = client_lowlevel.stats(cid.id, stream=False)
             logger.info(f'Container {cid.id} resource usage -- '
-                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / CPU_MULTIPLIER, 2)} '
+                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)} '
                         f'RAM: {round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)} Mb '
                         f'of {round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)} Mb')
             logs = client_lowlevel.logs(cid.id, stream=False, tail=100).decode("utf-8", errors='ignore').split('\r\n')
