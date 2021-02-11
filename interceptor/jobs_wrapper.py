@@ -172,3 +172,13 @@ class JobsWrapper(object):
                                      tty=True, detach=True,
                                      remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                                      user='0:0')
+
+    @staticmethod
+    def browsertime(client, container, env_vars, cmd, *args, **kwargs):
+
+        return client.containers.run(container, name=f'browsertime_{uuid4()}'[:36],
+                                     nano_cpus=c.BROWSERTIME_CPU_QUOTA, mem_limit=c.BROWSERTIME_MEMORY_QUOTA,
+                                     command=cmd,
+                                     environment=env_vars,
+                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                                     user='0:0')
