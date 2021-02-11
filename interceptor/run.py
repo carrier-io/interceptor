@@ -25,6 +25,7 @@ from traceback import format_exc
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
 from interceptor.lambda_executor import LambdaExecutor
+from json import dumps
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -76,12 +77,20 @@ def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, ju
 
 
 @app.task(name="browsertime")
-def browsertime(container, galloper_url, project_id, token, bucket, filename, view='1920x1080', tests='1', cmd=''):
+def browsertime(container, galloper_url, project_id, token, bucket, filename, url, view='1920x1080', tests='1',
+                headers={}, browser=""):
 
     try:
         client = docker.from_env()
         env_vars = {"galloper_url": galloper_url, "project_id": project_id, "token": token, "bucket": bucket,
                     "filename": filename, "view": view, "tests": tests}
+        cmd = url
+        if headers:
+            cmd += " -H "
+            for key, value in headers.items():
+                cmd += f'{key.replace(" ", "")}:{value.replace(" ", "")} '
+        if browser:
+            cmd += f" -b {browser}"
 
         cid = getattr(JobsWrapper, 'browsertime')(client, container, env_vars, cmd)
         while cid.status != "exited":
