@@ -58,3 +58,5 @@ NAME_CONTAINER_MAPPING = {
     "Node.js 12.x": 'lambda:nodejs12.x',
     "Ruby 2.5": 'lambda:ruby2.5'
 }
+
+BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'

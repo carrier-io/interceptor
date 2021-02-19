@@ -25,7 +25,6 @@ from traceback import format_exc
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.post_processor import PostProcessor
 from interceptor.lambda_executor import LambdaExecutor
-from json import dumps
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -77,10 +76,11 @@ def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, ju
 
 
 @app.task(name="browsertime")
-def browsertime(container, galloper_url, project_id, token, bucket, filename, url, view='1920x1080', tests='1',
-                headers={}, browser=""):
-
+def browsertime(galloper_url, project_id, token, bucket, filename, url, view='1920x1080', tests='1',
+                headers=None, browser="", *args, **kwargs):
     try:
+        if not headers:
+            headers = {}
         client = docker.from_env()
         env_vars = {"galloper_url": galloper_url, "project_id": project_id, "token": token, "bucket": bucket,
                     "filename": filename, "view": view, "tests": tests}
@@ -92,9 +92,9 @@ def browsertime(container, galloper_url, project_id, token, bucket, filename, ur
         if browser:
             cmd += f" -b {browser}"
 
-        cid = getattr(JobsWrapper, 'browsertime')(client, container, env_vars, cmd)
+        cid = getattr(JobsWrapper, 'browsertime')(client, c.BROWSERTIME_CONTAINER, env_vars, cmd)
         while cid.status != "exited":
-            logger.info(f"Executing: {container}")
+            logger.info(f"Executing: {c.BROWSERTIME_CONTAINER}")
             logger.info(f"Execution params: {cmd}")
             logger.info(f"Container {cid.id} status {cid.status}")
             try:
