@@ -60,3 +60,4 @@ NAME_CONTAINER_MAPPING = {
 }
 
 BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'
+STRIP_HEADERS = ["content-length"]

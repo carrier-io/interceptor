@@ -88,7 +88,8 @@ def browsertime(galloper_url, project_id, token, bucket, filename, url, view='19
         if headers:
             cmd += " -H "
             for key, value in headers.items():
-                cmd += f'"{key.replace(" ", "")}:{value.replace(" ", "")}" '
+                if key.strip().lower not in c.STRIP_HEADERS:
+                    cmd += f'"{key.strip()}:{value.strip()}" '
         if browser:
             cmd += f" -b {browser}"
 
