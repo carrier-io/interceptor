@@ -14,7 +14,7 @@
 from os import environ
 
 CPU_MULTIPLIER = 1000000000
-CONTAINER_CPU_QUOTA = int(environ.get('CPU_QUOTA', 1)) * CPU_MULTIPLIER  # nano fraction of single core
+CONTAINER_CPU_QUOTA = int(float(environ.get('CPU_QUOTA', 1)) * CPU_MULTIPLIER)  # nano fraction of single core
 BROWSERTIME_CPU_QUOTA = int(environ.get('BROWSERTIME_CPU_QUOTA', 2)) * CPU_MULTIPLIER  # nano fraction of single core
 CONTAINER_MEMORY_QUOTA = environ.get('RAM_QUOTA', '1g')
 BROWSERTIME_MEMORY_QUOTA = environ.get('BROWSERTIME_MEMORY_QUOTA', '4g')
