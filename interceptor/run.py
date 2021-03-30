@@ -32,9 +32,10 @@ RABBIT_HOST = environ.get('RABBIT_HOST', 'localhost')
 RABBIT_PORT = environ.get('RABBIT_PORT', '5672')
 QUEUE_NAME = environ.get('QUEUE_NAME', "default")
 CPU_CORES = environ.get('CPU_CORES', 2)
+VHOST = environ.get('VHOST', 'carrier')
 
 app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
-             user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME)
+             user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME, vhost=VHOST)
 
 logger = logging.getLogger("interceptor")
 

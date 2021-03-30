@@ -1,6 +1,7 @@
 from os import path, environ
 import json
 import requests
+import logging
 
 
 class PostProcessor:
@@ -34,7 +35,8 @@ class PostProcessor:
             if self.token:
                 headers['Authorization'] = f'bearer {self.token}'
 
-            requests.post(self.galloper_web_hook, json=data, headers=headers)
+            res = requests.post(self.galloper_web_hook, json=data, headers=headers)
+            logging.info(res.text)
 
 
 
