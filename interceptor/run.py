@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import docker
+import boto3
 import signal
 import logging_loki
 from multiprocessing import Queue
@@ -61,6 +62,25 @@ def sigterm_handler(signal, frame):
 
 
 signal.signal(signal.SIGTERM, sigterm_handler)
+
+
+@app.task(name="terminate_ec2_instances")
+def terminate_ec2_instances(aws_access_key_id, aws_secret_access_key, region_name, fleet_id):
+    try:
+        ec2 = boto3.client('ec2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,
+                           region_name=region_name)
+        response = ec2.cancel_spot_fleet_requests(
+            SpotFleetRequestIds=[
+                fleet_id,
+            ],
+            TerminateInstances=True
+        )
+        logger.info(response)
+        return "Done"
+    except Exception:
+        logger.error(format_exc())
+        logger.info("Failed to terminate AWS ec2 instances")
+        return "Failed"
 
 
 @app.task(name="post_process")

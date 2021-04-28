@@ -2,6 +2,7 @@ from os import path, environ
 import json
 import requests
 import logging
+from interceptor.lambda_executor import LambdaExecutor
 
 
 class PostProcessor:
@@ -27,16 +28,16 @@ class PostProcessor:
             else:
                 self.config_file = environ.get('CONFIG_FILE', '{}')
 
-            data = {'galloper_url': self.galloper_url, 'project_id': self.project_id,
-                    'config_file': json.dumps(self.config_file),
-                    'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token,
-                    'integration': self.integration, "email_recipients": self.email_recipients}
-            headers = {'content-type': 'application/json'}
-            if self.token:
-                headers['Authorization'] = f'bearer {self.token}'
+            event = {'galloper_url': self.galloper_url, 'project_id': self.project_id,
+                     'config_file': json.dumps(self.config_file),
+                     'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token,
+                     'integration': self.integration, "email_recipients": self.email_recipients}
+            endpoint = f"api/v1/task/{self.project_id}/" \
+                       f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
+            headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
+            task = requests.get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
 
-            res = requests.post(self.galloper_web_hook, json=data, headers=headers)
-            logging.info(res.text)
+            LambdaExecutor(task, event, self.galloper_url, self.token).execute_lambda()
 
 
 
