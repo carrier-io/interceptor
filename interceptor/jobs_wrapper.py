@@ -117,7 +117,7 @@ class JobsWrapper(object):
         params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
                   'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host', 'loki_port',
                   'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact', 'additional_files', 'save_reports',
-                  'project_id', 'token', 'compile_and_run']
+                  'project_id', 'token', 'compile_and_run', 'JVM_ARGS']
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
