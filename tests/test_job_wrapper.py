@@ -1,0 +1,87 @@
+import pytest
+import requests_mock
+import docker
+import tests.utils.constants as c
+from interceptor.jobs_wrapper import JobsWrapper
+
+galloper_url = "https://example.com"
+project_id = 1
+token = "test"
+
+
+def test_job_wrapper_dast():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.dast(client, "getcarrier/dast:latest", {"cmd": "", "GALLOPER_PROJECT_ID": project_id,
+                                                            "GALLOPER_URL": galloper_url,
+                                                            "GALLOPER_AUTH_TOKEN": token}, "dast")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_sast():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.sast(client, "getcarrier/sast:latest", {"cmd": "", "GALLOPER_PROJECT_ID": project_id,
+                                                            "GALLOPER_URL": galloper_url,
+                                                            "GALLOPER_AUTH_TOKEN": token}, "sast")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_perfmeter():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.perfmeter(client, "getcarrier/perfmeter:latest", {"cmd": "", "DISTRIBUTED_MODE_PREFIX": "prefix",
+                                                                      "build_id": "test_build",
+                                                                      "config_yaml": {}}, "perfmeter")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_perfgun():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.perfgun(client, "getcarrier/perfgun:latest", {"cmd": "", "DISTRIBUTED_MODE_PREFIX": "prefix",
+                                                                  "build_id": "test_build", "GATLING_TEST_PARAMS": "",
+                                                                  "config_yaml": {}}, "perfgun")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_observer():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.observer(client, "getcarrier/observer:latest", {"cmd": ""}, "observer")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_browsertime():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.observer(client, "getcarrier/browsertime:latest", {"cmd": ""}, "browsertime")
+        assert mock.call_count == 3
+
+
+def test_job_wrapper_perfui():
+    with requests_mock.Mocker() as mock:
+        client = docker.from_env()
+        mock.register_uri(requests_mock.POST, c.docker_create_url, status_code=204, json={"Id": "1"})
+        mock.get(c.docker_get_container_info_url, json={"Id": "1"})
+        mock.post(c.docker_start_url, json={"Id": "1"})
+        JobsWrapper.perfui(client, "getcarrier/perfui:latest", {"cmd": ""}, "perfui")
+        assert mock.call_count == 3

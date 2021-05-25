@@ -43,7 +43,10 @@ class LambdaExecutor:
         except:
             logging.info("Failed to remove docker volume")
         shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
-        log = response.decode("utf-8", errors='ignore')
+        try:
+            log = response.decode("utf-8", errors='ignore')
+        except:
+            log = "\n\n{logs are not available}"
         if container_name == "lambda:python3.7":
             results = re.findall(r'({.+?})', log)[-1]
         else:
