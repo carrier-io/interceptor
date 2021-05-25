@@ -2,4 +2,6 @@ docker==3.6.0
 redis==3.2.0
 python-logging-loki==0.3.1
 boto3==1.17.34
+requests-mock==1.9.2
+mock==4.0.3
 git+https://github.com/carrier-io/arbiter.git
