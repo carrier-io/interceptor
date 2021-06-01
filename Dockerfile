@@ -12,7 +12,7 @@ COPY interceptor /tmp/interceptor
 RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
-RUN pip install git+https://github.com/carrier-io/arbiter.git
+RUN pip install git+https://github.com/carrier-io/arbiter.git@v.2.5
 
 SHELL ["/bin/bash", "-c"]
 
