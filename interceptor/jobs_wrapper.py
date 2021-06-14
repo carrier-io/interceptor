@@ -36,7 +36,7 @@ class JobsWrapper(object):
             docker_container, name=docker_name,
             nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
             command=docker_command, environment=docker_environment, mounts=docker_mounts,
-            tty=True, detach=True, remove=True, auto_remove=True,
+            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
             user="0:0"
         )
 
@@ -57,7 +57,7 @@ class JobsWrapper(object):
             docker_container, name=docker_name,
             nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
             command=docker_command, environment=docker_environment, mounts=docker_mounts,
-            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=True,
+            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
             user="0:0"
         )
 
