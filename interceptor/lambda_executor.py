@@ -33,7 +33,7 @@ class LambdaExecutor:
         env_vars = loads(self.task.get("env_vars", "{}"))
         if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event[0]:
             env_vars.update(self.event[0]["cc_env_vars"])
-        response = client.containers.run(f"lambci/{container_name}",
+        response = client.containers.run(f"getcarrier/{container_name}",
                                          command=[f"{self.task['task_handler']}", dumps(self.event)],
                                          mounts=[mount], stderr=True, remove=True,
                                          environment=env_vars)

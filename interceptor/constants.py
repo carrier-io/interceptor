@@ -52,7 +52,7 @@ NAME_CONTAINER_MAPPING = {
     "Go 1.x": "lambda:go1.x",
     "Java 8": "lambda:java8",
     "Java 11": "lambda:java11",
-    "Node.js 6.10": 'nodejs6.10',
+    "Node.js 6.10": 'lambda:nodejs6.10',
     "Node.js 8.10": 'lambda:nodejs8.10',
     "Node.js 10.x": 'lambda:nodejs10.x',
     "Node.js 12.x": 'lambda:nodejs12.x',
