@@ -57,21 +57,20 @@ class LambdaExecutor:
 
         headers = {
             "Content-Type": "application/json",
-            "Token": self.task['token'],
             'Authorization': f'bearer {self.token}'}
         post(f'{self.galloper_url}/api/v1/task/{self.task["task_id"]}/results', headers=headers, data=dumps(data))
-        if self.task["callback"]:
-            for each in self.event:
-                each['result'] = results
-            endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
-            headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
-            self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
-            self.execute_lambda()
+        # if self.task["callback"]:
+        #     for each in self.event:
+        #         each['result'] = results
+        #     endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
+        #     headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
+        #     self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
+        #     self.execute_lambda()
 
     def download_artifact(self, lambda_id):
         try:
             os.mkdir(f'/tmp/{lambda_id}')
-            endpoint = f'/api/v1/artifacts/{self.task["project_id"]}/{self.task["zippath"]}'
+            endpoint = f'/api/v1/artifact/{self.task["project_id"]}/{self.task["zippath"]}'
             headers = {'Authorization': f'bearer {self.token}'}
             r = get(f'{self.galloper_url}/{endpoint}', allow_redirects=True, headers=headers)
             with open(f'/tmp/{lambda_id}/{lambda_id}', 'wb') as file_data:
