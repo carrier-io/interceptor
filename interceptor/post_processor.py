@@ -32,7 +32,7 @@ class PostProcessor:
                      'config_file': json.dumps(self.config_file),
                      'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token,
                      'integration': self.integration, "email_recipients": self.email_recipients}
-            endpoint = f"api/v1/task/{self.project_id}/" \
+            endpoint = f"api/v1/tasks/task/{self.project_id}/" \
                        f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
             headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
             task = requests.get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
