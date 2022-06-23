@@ -13,6 +13,7 @@ RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requireme
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
 RUN pip install git+https://github.com/carrier-io/arbiter.git
+RUN pip install git+https://github.com/carrier-io/loki_logger.git
 
 SHELL ["/bin/bash", "-c"]
 

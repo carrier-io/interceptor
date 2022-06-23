@@ -11,11 +11,11 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 from uuid import uuid4
 from interceptor import constants as c
 import docker
 import json
+from centry_loki import log_loki
 
 
 class JobsWrapper(object):
@@ -82,7 +82,16 @@ class JobsWrapper(object):
                 docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
         else:
             docker_mounts = []
-        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
+        name = f'{job_name}_{uuid4()}'[:36]
+        context = {"url": f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
+                   "hostname": "interceptor", "labels": {"build_id": execution_params['build_id'],
+                                                         "project": env_vars["project_id"],
+                                                         "report_id": env_vars["report_id"]}}
+        logger = log_loki.get_logger(context)
+        logger.info(f"Staring {container} with name {name}")
+        logger.info(f"Command {execution_params['cmd']}")
+        logger.info(f"env_vars: {env_vars}")
+        return client.containers.run(container, name=name,
                                      nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
                                      command=f"{execution_params['cmd']}",
                                      mounts=docker_mounts,
