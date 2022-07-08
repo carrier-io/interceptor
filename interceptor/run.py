@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import docker
+import requests
 import boto3
 import signal
 import logging_loki
@@ -34,6 +35,7 @@ RABBIT_PORT = environ.get('RABBIT_PORT', '5672')
 QUEUE_NAME = environ.get('QUEUE_NAME', "default")
 CPU_CORES = environ.get('CPU_CORES', 2)
 VHOST = environ.get('VHOST', 'carrier')
+TOKEN = environ.get('TOKEN', '')
 
 app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
              user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME, vhost=VHOST)
@@ -184,6 +186,12 @@ def execute_job(job_type, container, execution_params, job_name):
 
 
 def main():
+    url = f"{c.LOKI_HOST}/api/v1/projects/rabbitmq/{VHOST}"
+    data = {"name": QUEUE_NAME}
+    headers = {'content-type': 'application/json'}
+    if TOKEN:
+        headers['Authorization'] = f'bearer {TOKEN}'
+    requests.post(url, json=data, headers=headers)
     app.run(workers=int(CPU_CORES))
 
 
