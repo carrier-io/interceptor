@@ -186,7 +186,7 @@ def execute_job(job_type, container, execution_params, job_name):
 
 
 def main():
-    if QUEUE_NAME != "__Uinternal":
+    if QUEUE_NAME != "__internal":
         url = f"{c.LOKI_HOST}/api/v1/projects/rabbitmq/{VHOST}"
         data = {"name": QUEUE_NAME}
         headers = {'content-type': 'application/json'}
