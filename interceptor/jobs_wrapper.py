@@ -71,7 +71,7 @@ class JobsWrapper(object):
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
         params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket', 'additional_files',
-                  'JVM_ARGS', 'save_reports', 'project_id', 'token', "report_id"]
+                  'JVM_ARGS', 'save_reports', 'project_id', 'token', "report_id", "cpu_quota", "memory_quota"]
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
@@ -87,12 +87,17 @@ class JobsWrapper(object):
                    "hostname": "interceptor", "labels": {"build_id": execution_params['build_id'],
                                                          "project": env_vars["project_id"],
                                                          "report_id": env_vars["report_id"]}}
+        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get("cpu_quota")\
+            else c.CONTAINER_CPU_QUOTA
+        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get("memory_quota") else c.CONTAINER_MEMORY_QUOTA
+        jvm_memory = int(mem_limit[:-1]) - 1
+        env_vars["JVM_ARGS"] = f"-Xms{jvm_memory}g -Xmx{jvm_memory}g"
         logger = log_loki.get_logger(context)
         logger.info(f"Staring {container} with name {name}")
         logger.info(f"Command {execution_params['cmd']}")
         logger.info(f"env_vars: {env_vars}")
         return client.containers.run(container, name=name,
-                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                                     nano_cpus=nano_cpus, mem_limit=mem_limit,
                                      command=f"{execution_params['cmd']}",
                                      mounts=docker_mounts,
                                      environment=env_vars,
@@ -126,13 +131,27 @@ class JobsWrapper(object):
         params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
                   'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host', 'loki_port',
                   'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact', 'additional_files', 'save_reports',
-                  'project_id', 'token', 'compile_and_run', 'JVM_ARGS', "report_id"]
+                  'project_id', 'token', 'compile_and_run', 'JVM_ARGS', "report_id", "cpu_quota", "memory_quota"]
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
 
-        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+        context = {"url": f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
+                   "hostname": "interceptor", "labels": {"build_id": execution_params['build_id'],
+                                                         "project": env_vars["project_id"],
+                                                         "report_id": env_vars["report_id"]}}
+        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get("cpu_quota")\
+            else c.CONTAINER_CPU_QUOTA
+        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get("memory_quota") else c.CONTAINER_MEMORY_QUOTA
+        jvm_memory = int(mem_limit[:-1]) - 1
+        env_vars["JVM_ARGS"] = f"-Xms{jvm_memory}g -Xmx{jvm_memory}g"
+        name = f'{job_name}_{uuid4()}'[:36]
+        logger = log_loki.get_logger(context)
+        logger.info(f"Staring {container} with name {name}")
+        logger.info(f"Command {execution_params['cmd']}")
+        logger.info(f"env_vars: {env_vars}")
+        return client.containers.run(container, name=name,
+                                     nano_cpus=nano_cpus, mem_limit=mem_limit,
                                      environment=env_vars,
                                      tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                                      user='0:0')

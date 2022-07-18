@@ -186,12 +186,13 @@ def execute_job(job_type, container, execution_params, job_name):
 
 
 def main():
-    url = f"{c.LOKI_HOST}/api/v1/projects/rabbitmq/{VHOST}"
-    data = {"name": QUEUE_NAME}
-    headers = {'content-type': 'application/json'}
-    if TOKEN:
-        headers['Authorization'] = f'bearer {TOKEN}'
-    requests.post(url, json=data, headers=headers)
+    if QUEUE_NAME != "__Uinternal":
+        url = f"{c.LOKI_HOST}/api/v1/projects/rabbitmq/{VHOST}"
+        data = {"name": QUEUE_NAME}
+        headers = {'content-type': 'application/json'}
+        if TOKEN:
+            headers['Authorization'] = f'bearer {TOKEN}'
+        requests.post(url, json=data, headers=headers)
     app.run(workers=int(CPU_CORES))
 
 
