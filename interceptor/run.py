@@ -86,11 +86,10 @@ def terminate_ec2_instances(aws_access_key_id, aws_secret_access_key, region_nam
 
 
 @app.task(name="post_process")
-def post_process(galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None, integration=[],
-                 email_recipients=None):
+def post_process(galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix, token=None, integration=[]):
     try:
-        PostProcessor(galloper_url, project_id, galloper_web_hook, bucket,
-                      prefix, junit, token, integration, email_recipients).results_post_processing()
+        PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, bucket,
+                      prefix, token, integration).results_post_processing()
         return "Done"
     except Exception:
         logger.error(format_exc())

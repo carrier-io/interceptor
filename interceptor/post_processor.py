@@ -7,18 +7,17 @@ from interceptor.lambda_executor import LambdaExecutor
 
 class PostProcessor:
 
-    def __init__(self, galloper_url, project_id, galloper_web_hook, bucket, prefix, junit=False, token=None,
-                 integration=[], email_recipients=None):
+    def __init__(self, galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix, token=None,
+                 integration=[]):
         self.galloper_url = galloper_url
         self.project_id = project_id
         self.galloper_web_hook = galloper_web_hook
         self.bucket = bucket
         self.prefix = prefix
         self.config_file = '{}'
-        self.junit = junit
         self.token = token
         self.integration = integration
-        self.email_recipients = email_recipients
+        self.report_id = report_id
 
     def results_post_processing(self):
         if self.galloper_web_hook:
@@ -30,8 +29,8 @@ class PostProcessor:
 
             event = {'galloper_url': self.galloper_url, 'project_id': self.project_id,
                      'config_file': json.dumps(self.config_file),
-                     'bucket': self.bucket, 'prefix': self.prefix, 'junit': self.junit, 'token': self.token,
-                     'integration': self.integration, "email_recipients": self.email_recipients}
+                     'bucket': self.bucket, 'prefix': self.prefix, 'token': self.token,
+                     'integration': self.integration, "report_id": self.report_id}
             endpoint = f"api/v1/tasks/task/{self.project_id}/" \
                        f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
             headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
