@@ -67,15 +67,22 @@ signal.signal(signal.SIGTERM, sigterm_handler)
 
 
 @app.task(name="terminate_ec2_instances")
-def terminate_ec2_instances(aws_access_key_id, aws_secret_access_key, region_name, fleet_id):
+def terminate_ec2_instances(
+        aws_access_key_id, aws_secret_access_key, region_name, fleet_id, launch_template_id
+):
     try:
-        ec2 = boto3.client('ec2', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,
+        ec2 = boto3.client('ec2', aws_access_key_id=aws_access_key_id,
+                           aws_secret_access_key=aws_secret_access_key,
                            region_name=region_name)
-        response = ec2.cancel_spot_fleet_requests(
-            SpotFleetRequestIds=[
+        response = ec2.delete_fleets(
+            FleetIds=[
                 fleet_id,
             ],
             TerminateInstances=True
+        )
+        logger.info(response)
+        response = ec2.delete_launch_template(
+            LaunchTemplateId=launch_template_id
         )
         logger.info(response)
         return "Done"
