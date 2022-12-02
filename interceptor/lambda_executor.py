@@ -53,20 +53,25 @@ class LambdaExecutor:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
 
-        data = {"ts": int(mktime(datetime.utcnow().timetuple())), 'results': results, 'stderr': log}
+        data = {
+            "ts": int(mktime(datetime.utcnow().timetuple())),
+            'results': results,
+            'log': log,
+            'task_id': self.task["task_id"]
+        }
 
         headers = {
             "Content-Type": "application/json",
             'Authorization': f'bearer {self.token}'}
-        # TODO create task results API
-        # post(f'{self.galloper_url}/api/v1/tasks/task/{self.task["task_id"]}/results', headers=headers, data=dumps(data))
-        # if self.task["callback"]:
-        #     for each in self.event:
-        #         each['result'] = results
-        #     endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
-        #     headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
-        #     self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
-        #     self.execute_lambda()
+        res = post(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}', headers=headers, data=dumps(data))
+        logging.info(f'Created task_results: {res.status_code, res.text}')
+        if self.task["callback"]:
+            for each in self.event:
+                each['result'] = results
+            endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
+            headers = {'Authorization': f'bearer {self.token}', 'content-type': 'application/json'}
+            self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
+            self.execute_lambda()
 
     def download_artifact(self, lambda_id):
         try:
