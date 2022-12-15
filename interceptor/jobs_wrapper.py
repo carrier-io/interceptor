@@ -11,16 +11,18 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-from uuid import uuid4
-from interceptor import constants as c
-import docker
 import json
-from centry_loki import log_loki
+from uuid import uuid4
+
+import docker
+
+from interceptor import constants as c
+from interceptor.containers_backend import Client
 
 
 class JobsWrapper(object):
     @staticmethod
-    def dast(client, container, execution_params, job_name, *args, **kwargs):
+    def dast(client: Client, container, execution_params, job_name, *args, **kwargs):
         #
         docker_container = container
         docker_name = f"dast_{uuid4()}"[:36]
@@ -32,16 +34,14 @@ class JobsWrapper(object):
         }
         docker_mounts = list()
         #
-        return client.containers.run(
-            docker_container, name=docker_name,
-            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-            command=docker_command, environment=docker_environment, mounts=docker_mounts,
-            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-            user="0:0"
-        )
+        return client.run(docker_container, name=docker_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
+                          mem_limit=c.CONTAINER_MEMORY_QUOTA, environment=docker_environment,
+                          tty=True, detach=True, remove=c.REMOVE_CONTAINERS,
+                          auto_remove=c.REMOVE_CONTAINERS, user="0:0", command=docker_command,
+                          mounts=docker_mounts)
 
     @staticmethod
-    def sast(client, container, execution_params, job_name, *args, **kwargs):
+    def sast(client: Client, container, execution_params, job_name, *args, **kwargs):
         #
         docker_container = container
         docker_name = f"sast_{uuid4()}"[:36]
@@ -53,25 +53,25 @@ class JobsWrapper(object):
         }
         docker_mounts = list()
         #
-        return client.containers.run(
-            docker_container, name=docker_name,
-            nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-            command=docker_command, environment=docker_environment, mounts=docker_mounts,
-            tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-            user="0:0"
-        )
+        return client.run(docker_container, name=docker_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
+                          mem_limit=c.CONTAINER_MEMORY_QUOTA, environment=docker_environment,
+                          tty=True, detach=True, remove=c.REMOVE_CONTAINERS,
+                          auto_remove=c.REMOVE_CONTAINERS, user="0:0", command=docker_command,
+                          mounts=docker_mounts)
 
     @staticmethod
-    def perfui(client, container, execution_params, job_name, *args, **kwargs):
+    def perfui(client: Client, container, execution_params, job_name, *args, **kwargs):
         return JobsWrapper.free_style(client, container, execution_params, job_name)
 
     @staticmethod
-    def perfmeter(client, container, execution_params, job_name, *args, **kwargs):
+    def perfmeter(client: Client, container, execution_params, job_name, *args, **kwargs):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
-        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact', 'results_bucket', 'additional_files',
-                  'JVM_ARGS', 'save_reports', 'project_id', 'token', "report_id", "cpu_quota", "memory_quota"]
+        params = ['loki_host', 'loki_port', 'galloper_url', 'bucket', 'artifact',
+                  'results_bucket', 'additional_files',
+                  'JVM_ARGS', 'save_reports', 'project_id', 'token', "report_id", "cpu_quota",
+                  "memory_quota"]
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
@@ -83,29 +83,26 @@ class JobsWrapper(object):
         else:
             docker_mounts = []
         name = f'{job_name}_{uuid4()}'[:36]
-        context = {"url": f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
-                   "hostname": "interceptor", "labels": {"build_id": execution_params['build_id'],
-                                                         "project": env_vars["project_id"],
-                                                         "report_id": env_vars["report_id"]}}
-        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get("cpu_quota")\
+
+        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get(
+            "cpu_quota") \
             else c.CONTAINER_CPU_QUOTA
-        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get("memory_quota") else c.CONTAINER_MEMORY_QUOTA
+        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get(
+            "memory_quota") else c.CONTAINER_MEMORY_QUOTA
         jvm_memory = int(mem_limit[:-1]) - 1
         env_vars["JVM_ARGS"] = f"-Xms{jvm_memory}g -Xmx{jvm_memory}g"
-        logger = log_loki.get_logger(context)
+        logger = client.logger
         logger.info(f"Staring {container} with name {name}")
         logger.info(f"Command {execution_params['cmd']}")
         logger.info(f"env_vars: {env_vars}")
-        return client.containers.run(container, name=name,
-                                     nano_cpus=nano_cpus, mem_limit=mem_limit,
-                                     command=f"{execution_params['cmd']}",
-                                     mounts=docker_mounts,
-                                     environment=env_vars,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-                                     user='0:0')
+        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit,
+                          environment=env_vars, tty=True, detach=True,
+                          remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                          user='0:0', command=f"{execution_params['cmd']}",
+                          mounts=docker_mounts)
 
     @staticmethod
-    def free_style(client, container, execution_params, job_name):
+    def free_style(client: Client, container, execution_params, job_name):
         if 'mounts' in execution_params.keys():
             mounts = json.loads(execution_params['mounts'])
             docker_mounts = []
@@ -114,50 +111,49 @@ class JobsWrapper(object):
         else:
             docker_mounts = []
         command = execution_params.pop("cmd", "")
-        return client.containers.run(container, name=f'{job_name}_{uuid4()}'[:36],
-                                     nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                                     command=command,
-                                     mounts=docker_mounts,
-                                     environment=execution_params,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-                                     user='0:0')
+        return client.run(container, name=f'{job_name}_{uuid4()}'[:36],
+                          nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                          environment=execution_params, tty=True, detach=True,
+                          remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                          user='0:0', command=command, mounts=docker_mounts)
 
     @staticmethod
-    def perfgun(client, container, execution_params, job_name, *args, **kwargs):
+    def perfgun(client: Client, container, execution_params, job_name, *args, **kwargs):
         env_vars = {"DISTRIBUTED_MODE_PREFIX": execution_params['DISTRIBUTED_MODE_PREFIX'],
                     "GATLING_TEST_PARAMS": execution_params['GATLING_TEST_PARAMS'],
                     "build_id": execution_params['build_id'],
                     "config_yaml": execution_params['config_yaml']}
-        params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password', 'influxdb_database',
-                  'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host', 'loki_port',
-                  'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact', 'additional_files', 'save_reports',
-                  'project_id', 'token', 'compile_and_run', 'JVM_ARGS', "report_id", "cpu_quota", "memory_quota"]
+        params = ['influxdb_host', 'influxdb_port', 'influxdb_user', 'influxdb_password',
+                  'influxdb_database',
+                  'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host',
+                  'loki_port',
+                  'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact',
+                  'additional_files', 'save_reports',
+                  'project_id', 'token', 'compile_and_run', 'JVM_ARGS', "report_id",
+                  "cpu_quota", "memory_quota"]
         for key in params:
             if key in execution_params.keys():
                 env_vars[key] = execution_params[key]
 
-        context = {"url": f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
-                   "hostname": "interceptor", "labels": {"build_id": execution_params['build_id'],
-                                                         "project": env_vars["project_id"],
-                                                         "report_id": env_vars["report_id"]}}
-        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get("cpu_quota")\
+        nano_cpus = int(float(env_vars["cpu_quota"]) * c.CPU_MULTIPLIER) if env_vars.get(
+            "cpu_quota") \
             else c.CONTAINER_CPU_QUOTA
-        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get("memory_quota") else c.CONTAINER_MEMORY_QUOTA
+        mem_limit = f'{env_vars["memory_quota"]}g' if env_vars.get(
+            "memory_quota") else c.CONTAINER_MEMORY_QUOTA
         jvm_memory = int(mem_limit[:-1]) - 1
         env_vars["JVM_ARGS"] = f"-Xms{jvm_memory}g -Xmx{jvm_memory}g"
         name = f'{job_name}_{uuid4()}'[:36]
-        logger = log_loki.get_logger(context)
+        logger = client.logger
         logger.info(f"Staring {container} with name {name}")
         logger.info(f"Command {execution_params['cmd']}")
         logger.info(f"env_vars: {env_vars}")
-        return client.containers.run(container, name=name,
-                                     nano_cpus=nano_cpus, mem_limit=mem_limit,
-                                     environment=env_vars,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-                                     user='0:0')
+        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit,
+                          environment=env_vars, tty=True, detach=True,
+                          remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                          user='0:0')
 
     @staticmethod
-    def observer(client, container, execution_params, job_name, *args, **kwargs):
+    def observer(client: Client, container, execution_params, job_name, *args, **kwargs):
         observer_container_name = f'{job_name}_{str(uuid4())[:8]}'
         env_vars = {}
         exclude_vars = ["cmd"]
@@ -188,25 +184,21 @@ class JobsWrapper(object):
         if 'mounts' in execution_params.keys():
             for mount in execution_params['mounts']:
                 for key, value in mount.items():
-                    docker_mounts.append(docker.types.Mount(target=value, source=key, type='bind'))
+                    docker_mounts.append(
+                        docker.types.Mount(target=value, source=key, type='bind'))
 
         observer_command = execution_params['cmd']
 
-        return client.containers.run(container, name=observer_container_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
-                                     mem_limit=c.CONTAINER_MEMORY_QUOTA,
-                                     command=observer_command,
-                                     environment=env_vars,
-                                     mounts=docker_mounts,
-                                     tty=True, detach=True,
-                                     remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-                                     user='0:0')
+        return client.run(container, name=observer_container_name,
+                          nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                          environment=env_vars, tty=True, detach=True,
+                          remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
+                          user='0:0', command=observer_command, mounts=docker_mounts)
 
     @staticmethod
-    def browsertime(client, container, env_vars, cmd, *args, **kwargs):
-
-        return client.containers.run(container, name=f'browsertime_{uuid4()}'[:36],
-                                     nano_cpus=c.BROWSERTIME_CPU_QUOTA, mem_limit=c.BROWSERTIME_MEMORY_QUOTA,
-                                     command=cmd,
-                                     environment=env_vars,
-                                     tty=True, detach=True, remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
-                                     user='0:0')
+    def browsertime(client: Client, container, env_vars, cmd, *args, **kwargs):
+        return client.run(container, name=f'browsertime_{uuid4()}'[:36],
+                          nano_cpus=c.BROWSERTIME_CPU_QUOTA,
+                          mem_limit=c.BROWSERTIME_MEMORY_QUOTA, environment=env_vars, tty=True,
+                          detach=True, remove=c.REMOVE_CONTAINERS,
+                          auto_remove=c.REMOVE_CONTAINERS, user='0:0', command=cmd)

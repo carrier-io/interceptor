@@ -9,6 +9,7 @@ ADD setup.py /tmp/setup.py
 ADD requirements.txt /tmp/requirements.txt
 COPY interceptor /tmp/interceptor
 
+RUN pip install requests
 RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
