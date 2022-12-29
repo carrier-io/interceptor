@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from uuid import uuid4
 
 import docker
+import requests
 import urllib3
 from kubernetes import client
 from kubernetes.client import ApiClient, V1EnvVar, ApiException, V1SecurityContext, \
@@ -173,21 +174,42 @@ class KubernetesClient(Client):
     ):
         self.namespace = namespace
         self.jobs_count = jobs_count
-        configuration = client.Configuration()
+        self.token = token
+        self.host = host
+        self.secure_connection = secure_connection
         self.logger = logger
 
-        configuration.api_key_prefix['authorization'] = 'Bearer'
-        configuration.api_key['authorization'] = token
-        configuration.host = host
-        configuration.verify_ssl = secure_connection
-
-        if not secure_connection:
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-        self.api_client = ApiClient(configuration)
+        self.api_client = self._prepare_api_client()
         self.batch_v1 = client.BatchV1Api(self.api_client)
         self.core_api = client.CoreV1Api(self.api_client)
         self.JOB_NAME = f"test-{str(uuid4())}"
+
+    def _prepare_api_client(self) -> ApiClient:
+        configuration = client.Configuration()
+        configuration.api_key_prefix['authorization'] = 'Bearer'
+        configuration.api_key['authorization'] = self.token
+        configuration.host = self.host
+        configuration.verify_ssl = self.secure_connection
+
+        if not self.secure_connection:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+        return ApiClient(configuration)
+
+    def get_capacity(self, url, bearer_token):
+        url = f"{url}/api/v1/kubernetes/get_available_resources"
+        data = {
+            "hostname": self.host,
+            "k8s_token": {"value": self.token, "from_secrets": False},
+            "namespace": self.namespace,
+            "secure_connection": self.secure_connection
+        }
+        headers = {'content-type': 'application/json',
+                   'Authorization': f'bearer {bearer_token}'}
+        res = requests.post(url, json=data, headers=headers)
+        res.raise_for_status()
+        capacity = res.json()
+        return capacity
 
     def create_job(
             self, image, name: str,
@@ -200,6 +222,8 @@ class KubernetesClient(Client):
             resources=client.V1ResourceRequirements(
                 limits={"cpu": f"{nano_cpus / NANO_TO_MILL_MULTIPLIER}m",
                         "memory": f"{mem_limit}".upper()},
+                requests={"cpu": f"{nano_cpus / NANO_TO_MILL_MULTIPLIER}m",
+                          "memory": f"{mem_limit}".upper()},
             ),
             env=[V1EnvVar(key, str(value)) for key, value in env_vars.items()],
             args=command.split(),
@@ -217,7 +241,7 @@ class KubernetesClient(Client):
                 ),
                 completions=self.jobs_count,
                 parallelism=self.jobs_count,
-                ttl_seconds_after_finished=30
+                ttl_seconds_after_finished=10
             )
         )
         api_response = self.batch_v1.create_namespaced_job(
@@ -232,6 +256,14 @@ class KubernetesClient(Client):
     def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
             auto_remove, user, command=None, mounts=None
     ) -> KubernetesJob:
+        capacity = self.get_capacity(environment["galloper_url"], environment["token"])
+        if self.jobs_count > capacity["pods"]:
+            raise ValueError("Not enough runners")
+        required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
+        required_memory = int(mem_limit[:-1]) * self.jobs_count
+        if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
+            raise ValueError("Not enough capacity in cluster to run test")
+
         self.create_job(image, name, environment, command=command,
                         nano_cpus=nano_cpus, mem_limit=mem_limit)
         return KubernetesJob(self.api_client, self.JOB_NAME, self.logger, self.namespace)
@@ -249,6 +281,10 @@ class KubernetesClient(Client):
             args=[
                 f"wget {artifact_url} "
                 f"--header='Authorization: bearer {auth_token}' -O tmp/task.zip"],
+            resources=client.V1ResourceRequirements(
+                limits={"cpu": "250m", "memory": "250Mi"},
+                requests={"cpu": "250m", "memory": "250Mi"},
+            ),
             volume_mounts=[shared_volume_mount]
         )
 
@@ -257,6 +293,10 @@ class KubernetesClient(Client):
             image="busybox:latest",
             command=["/bin/sh", "-c"],
             args=["unzip tmp/task.zip -d tmp/"],
+            resources=client.V1ResourceRequirements(
+                limits={"cpu": "250m", "memory": "250Mi"},
+                requests={"cpu": "250m", "memory": "250Mi"},
+            ),
             volume_mounts=[shared_volume_mount]
         )
 
@@ -264,6 +304,10 @@ class KubernetesClient(Client):
             name="main",
             image=f"getcarrier/{image}",
             args=command,
+            resources=client.V1ResourceRequirements(
+                limits={"cpu": "1000m", "memory": "1G"},
+                requests={"cpu": "1000m", "memory": "1G"},
+            ),
             volume_mounts=[client.V1VolumeMount(
                 name="shared-data",
                 mount_path="/var/task"

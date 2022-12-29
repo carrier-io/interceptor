@@ -36,5 +36,6 @@ def get_centry_logger(labels: dict = None):
         centry_logger = log_loki.get_logger(context)
     except KeyError:
         centry_logger = logger
+        centry_logger.warning("Failed setup logger for test. Used default logger")
 
     return centry_logger

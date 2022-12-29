@@ -83,9 +83,10 @@ def post_process(
 ):
     centry_logger = get_centry_logger({
         "build_id": build_id,
-        "project": project_id,
+        "project_id": project_id,
         "report_id": report_id,
     })
+    centry_logger.info("Start post processing")
     try:
         PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, bucket,
                       prefix, centry_logger, token,
@@ -155,8 +156,7 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
     client = KubernetesClient(**kubernetes_settings, logger=centry_logger)
     try:
         job: KubernetesJob = getattr(JobsWrapper, job_type)(client, container,
-                                                            execution_params,
-                                                            job_name)
+                                                            execution_params, job_name)
     except Exception as exc:
         centry_logger.error(exc)
         return
