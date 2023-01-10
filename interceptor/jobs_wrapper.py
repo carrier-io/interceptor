@@ -127,7 +127,7 @@ class JobsWrapper(object):
                   'influxdb_database',
                   'influxdb_comparison', "influxdb_telegraf", 'test_type', 'env', 'loki_host',
                   'loki_port',
-                  'galloper_url', 'bucket', 'test', 'results_bucket', 'artifact',
+                  'galloper_url', 'bucket', 'test', 'test_name', 'results_bucket', 'artifact',
                   'additional_files', 'save_reports',
                   'project_id', 'token', 'compile_and_run', 'JVM_ARGS', "report_id",
                   "cpu_quota", "memory_quota"]
