@@ -15,6 +15,7 @@ import signal
 from os import environ
 from time import sleep
 from traceback import format_exc
+from typing import List
 
 import boto3
 import requests
@@ -26,6 +27,7 @@ from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger, get_centry_logger
 from interceptor.post_processor import PostProcessor
+from google.oauth2.service_account import Credentials
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -49,6 +51,23 @@ def sigterm_handler(signal, frame):
 
 signal.signal(signal.SIGTERM, sigterm_handler)
 
+
+@app.task("terminate_gcp_instances")
+def terminate_gcp_instances(
+        service_account_info: dict, project: str, zone: str, instances: List[str]
+):
+    try:
+        credentials = Credentials.from_service_account_info(service_account_info)
+        instance_client = compute_v1.InstancesClient(credentials=credentials)
+        for instance_name in instances:
+            instance_client.delete(
+                project=project,
+                zone=zone,
+                instance=instance_name
+            )
+    except Exception:
+        logger.error(format_exc())
+        logger.info("Failed to terminate GCP instances")
 
 @app.task(name="terminate_ec2_instances")
 def terminate_ec2_instances(
