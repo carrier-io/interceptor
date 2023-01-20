@@ -170,7 +170,8 @@ class KubernetesClient(Client):
     def __init__(
             self, logger, token, host, jobs_count: int = 1,
             secure_connection: bool = False,
-            namespace: str = "default"
+            namespace: str = "default",
+            scaling_cluster: bool = False
     ):
         self.namespace = namespace
         self.jobs_count = jobs_count
@@ -178,6 +179,7 @@ class KubernetesClient(Client):
         self.host = host
         self.secure_connection = secure_connection
         self.logger = logger
+        self.scaling_cluster = scaling_cluster
 
         self.api_client = self._prepare_api_client()
         self.batch_v1 = client.BatchV1Api(self.api_client)
@@ -256,13 +258,14 @@ class KubernetesClient(Client):
     def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
             auto_remove, user, command=None, mounts=None
     ) -> KubernetesJob:
-        capacity = self.get_capacity(environment["galloper_url"], environment["token"])
-        if self.jobs_count > capacity["pods"]:
-            raise ValueError("Not enough runners")
-        required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
-        required_memory = int(mem_limit[:-1]) * self.jobs_count
-        if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
-            raise ValueError("Not enough capacity in cluster to run test")
+        if not self.scaling_cluster:
+            capacity = self.get_capacity(environment["galloper_url"], environment["token"])
+            if self.jobs_count > capacity["pods"]:
+                raise ValueError("Not enough runners")
+            required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
+            required_memory = int(mem_limit[:-1]) * self.jobs_count
+            if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
+                raise ValueError("Not enough capacity in cluster to run test")
 
         self.create_job(image, name, environment, command=command,
                         nano_cpus=nano_cpus, mem_limit=mem_limit)
