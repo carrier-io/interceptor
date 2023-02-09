@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from uuid import uuid4
 import re
 import shutil
 from datetime import datetime
