@@ -1,4 +1,6 @@
+import json
 import os
+import time
 from uuid import uuid4
 import shutil
 from json import dumps, loads
@@ -20,6 +22,7 @@ class LambdaExecutor:
         self.event = event
         self.galloper_url = galloper_url
         self.token = token
+        self.start_time = time.time()
 
     def execute_lambda(self):
         lambda_id = str(uuid4())
@@ -57,9 +60,10 @@ class LambdaExecutor:
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
-            'task_id': self.task["task_id"]
+            'task_id': self.task["task_id"],
+            'task_duration': time.time() - self.start_time,
+            'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
         }
-
         headers = {
             "Content-Type": "application/json",
             'Authorization': f'bearer {self.token}'}
