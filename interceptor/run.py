@@ -11,22 +11,23 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
-import docker
-import requests
-import boto3
 import signal
-import logging_loki
-from multiprocessing import Queue
-from arbiter import Minion
-import logging
 from os import environ
 from time import sleep
-from interceptor import constants as c
 from traceback import format_exc
+from typing import List
+
+import boto3
+import requests
+from arbiter import Minion
+
+from interceptor import constants as c
+from interceptor.containers_backend import KubernetesClient, DockerClient, Job, KubernetesJob
 from interceptor.jobs_wrapper import JobsWrapper
-from interceptor.post_processor import PostProcessor
 from interceptor.lambda_executor import LambdaExecutor
+from interceptor.logger import logger, get_centry_logger
+from interceptor.post_processor import PostProcessor
+from google.oauth2.service_account import Credentials
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -40,21 +41,6 @@ TOKEN = environ.get('TOKEN', '')
 app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
              user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME, vhost=VHOST)
 
-logger = logging.getLogger("interceptor")
-
-
-if c.LOKI_HOST:
-    handler = logging_loki.LokiQueueHandler(
-        Queue(-1),
-        url=f"{c.LOKI_HOST.replace('https://', 'http://')}:{c.LOKI_PORT}/loki/api/v1/push",
-        tags={"application": "interceptor"},
-        version="1",
-    )
-
-    logger.setLevel(logging.INFO if c.LOG_LEVEL == 'info' else logging.DEBUG)
-    logger.addHandler(handler)
-
-
 stop_task = False
 
 
@@ -65,6 +51,23 @@ def sigterm_handler(signal, frame):
 
 signal.signal(signal.SIGTERM, sigterm_handler)
 
+
+@app.task("terminate_gcp_instances")
+def terminate_gcp_instances(
+        service_account_info: dict, project: str, zone: str, instances: List[str]
+):
+    try:
+        credentials = Credentials.from_service_account_info(service_account_info)
+        instance_client = compute_v1.InstancesClient(credentials=credentials)
+        for instance_name in instances:
+            instance_client.delete(
+                project=project,
+                zone=zone,
+                instance=instance_name
+            )
+    except Exception:
+        logger.error(format_exc())
+        logger.info("Failed to terminate GCP instances")
 
 @app.task(name="terminate_ec2_instances")
 def terminate_ec2_instances(
@@ -93,25 +96,35 @@ def terminate_ec2_instances(
 
 
 @app.task(name="post_process")
-def post_process(galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix, token=None, integration=[]):
+def post_process(
+        galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
+        build_id, token=None, integration=[]
+):
+    centry_logger = get_centry_logger({
+        "build_id": build_id,
+        "project_id": project_id,
+        "report_id": report_id,
+    })
+    centry_logger.info("Start post processing")
     try:
         PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, bucket,
-                      prefix, token, integration).results_post_processing()
-        return "Done"
+                      prefix, centry_logger, token,
+                      integration).results_post_processing()
     except Exception:
-        logger.error(format_exc())
-        logger.info("Failed to run post processor")
-        return "Failed"
+        centry_logger.info("Failed to run postprocessor")
 
 
 @app.task(name="browsertime")
-def browsertime(galloper_url, project_id, token, bucket, filename, url, view='1920x1080', tests='1',
-                headers=None, browser="", *args, **kwargs):
+def browsertime(
+        galloper_url, project_id, token, bucket, filename, url, view='1920x1080',
+        tests='1', headers=None, browser="", *args, **kwargs
+):
     try:
         if not headers:
             headers = {}
-        client = docker.from_env()
-        env_vars = {"galloper_url": galloper_url, "project_id": project_id, "token": token, "bucket": bucket,
+        client = DockerClient(logger)
+        env_vars = {"galloper_url": galloper_url, "project_id": project_id, "token": token,
+                    "bucket": bucket,
                     "filename": filename, "view": view, "tests": tests}
         cmd = url
         if headers:
@@ -122,13 +135,14 @@ def browsertime(galloper_url, project_id, token, bucket, filename, url, view='19
         if browser:
             cmd += f" -b {browser}"
 
-        cid = getattr(JobsWrapper, 'browsertime')(client, c.BROWSERTIME_CONTAINER, env_vars, cmd)
-        while cid.status != "exited":
+        job = getattr(JobsWrapper, 'browsertime')(client, c.BROWSERTIME_CONTAINER, env_vars,
+                                                  cmd)
+        while job.status != "exited":
             logger.info(f"Executing: {c.BROWSERTIME_CONTAINER}")
             logger.info(f"Execution params: {cmd}")
-            logger.info(f"Container {cid.id} status {cid.status}")
+            logger.info(f"Container {job.id} status {job.status}")
             try:
-                cid.reload()
+                job.reload()
             except:
                 break
             sleep(10)
@@ -150,45 +164,68 @@ def execute_lambda(task, event, galloper_url, token):
         return "Failed"
 
 
-@app.task(name="execute")
-def execute_job(job_type, container, execution_params, job_name):
+@app.task(name="execute_kuber")
+def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings):
+    centry_logger = get_centry_logger(execution_params)
+
     if not getattr(JobsWrapper, job_type):
-        return False, "Job Type not found"
-    client = docker.from_env()
-    client.info()
-    logger.info(f"Executing: {job_type} on {container} with name {job_name}")
-    logger.info(f"Execution params: {execution_params}")
+        centry_logger.error("Job Type not found")
+        return
+
+    client = KubernetesClient(**kubernetes_settings, logger=centry_logger)
     try:
-        cid = getattr(JobsWrapper, job_type)(client, container, execution_params, job_name)
-    except:
-        return f"Failed to run docker container {container}"
-    logger.info(f"Container {cid.id} status {cid.status}")
-    client_lowlevel = docker.APIClient(base_url='unix://var/run/docker.sock')
-    last_log = []
-    while cid.status != "exited":
+        job: KubernetesJob = getattr(JobsWrapper, job_type)(client, container,
+                                                            execution_params, job_name)
+    except Exception as exc:
+        centry_logger.error(exc)
+        return
+    last_logs = []
+    while not job.is_finished():
+        sleep(10)
         global stop_task
         if stop_task:
             stop_task = False
-            cid.stop(timeout=60)
-            logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
-            exit(0)
+            job.stop_job()
+            return
         try:
-            cid.reload()
-            logger.info(f'Container Status: {cid.status}')
-            resource_usage = client_lowlevel.stats(cid.id, stream=False)
-            logger.info(f'Container {cid.id} resource usage -- '
-                        f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)} '
-                        f'RAM: {round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)} Mb '
-                        f'of {round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)} Mb')
-            logs = client_lowlevel.logs(cid.id, stream=False, tail=100).decode("utf-8", errors='ignore').split('\r\n')
-            for each in logs:
-                if each not in last_log:
-                    logging.info(each)
-            last_log = logs
+            job.log_status(last_logs)
+        except Exception as exc:
+            centry_logger.warning(f"FETCHING LOGS FAILED {exc}")
+    return "Done"
+
+
+@app.task(name="execute")
+def execute_job(job_type, container, execution_params, job_name):
+    centry_logger = get_centry_logger(execution_params)
+
+    if not getattr(JobsWrapper, job_type):
+        centry_logger.error("Job Type not found")
+        return
+
+    client = DockerClient(logger=centry_logger)
+    client.info()
+    centry_logger.info(f"Executing: {job_type} on {container} with name {job_name}")
+    centry_logger.info(f"Execution params: {execution_params}")
+    try:
+        job: Job = getattr(JobsWrapper, job_type)(client, container, execution_params,
+                                                  job_name)
+    except:
+        centry_logger.error(f"Failed to run docker container {container}")
+        return
+    last_logs = []
+    while not job.is_finished():
+        sleep(10)
+        global stop_task
+        if stop_task:
+            stop_task = False
+            job.stop_job()
+            centry_logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
+            return
+        try:
+            job.log_status(last_logs)
         except:
             break
-        sleep(10)
-    return "Done"
+    return
 
 
 def main():
@@ -204,5 +241,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

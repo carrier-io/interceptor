@@ -4,3 +4,5 @@ python-logging-loki==0.3.1
 boto3==1.17.34
 requests-mock==1.9.2
 mock==4.0.3
+kubernetes==25.3.0
+google-cloud-compute==1.9.0

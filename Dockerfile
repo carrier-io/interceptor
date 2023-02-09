@@ -1,7 +1,6 @@
-FROM python:3.6-alpine
+FROM python:3.8-alpine
 
-RUN apk update && apk add --no-cache supervisor docker docker-compose git bash
-
+RUN apk update && apk add --no-cache supervisor docker docker-compose git bash g++
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
 
@@ -9,6 +8,7 @@ ADD setup.py /tmp/setup.py
 ADD requirements.txt /tmp/requirements.txt
 COPY interceptor /tmp/interceptor
 
+RUN pip install requests
 RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
