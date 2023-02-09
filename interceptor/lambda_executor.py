@@ -1,4 +1,6 @@
+import json
 import os
+import time
 import re
 import shutil
 from datetime import datetime
@@ -24,6 +26,7 @@ class LambdaExecutor:
         self.event = event
         self.galloper_url = galloper_url
         self.token = token
+        self.start_time = time.time()
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
         if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event[0]:
@@ -56,9 +59,10 @@ class LambdaExecutor:
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
-            'task_id': self.task["task_id"]
+            'task_id': self.task["task_id"],
+            'task_duration': time.time() - self.start_time,
+            'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
         }
-
         headers = {
             "Content-Type": "application/json",
             'Authorization': f'bearer {self.token}'}
