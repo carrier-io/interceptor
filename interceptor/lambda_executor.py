@@ -35,6 +35,8 @@ class LambdaExecutor:
         self.artifact_url = f'{self.galloper_url}/api/v1/artifacts/artifact/' \
                             f'{self.task["project_id"]}/{self.task["zippath"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
+        
+        self.execution_params = loads(self.event[0]['execution_params'])
 
     def execute_lambda(self):
 
@@ -104,10 +106,16 @@ class LambdaExecutor:
 
         self.download_artifact(lambda_id)
         self.create_volume(client, lambda_id)
-        mount = docker.types.Mount(type="volume", source=lambda_id, target="/var/task")
+        mounts = [docker.types.Mount(type="volume", source=lambda_id, target="/var/task")]
+        
+        code_path = None if not self.execution_params else self.execution_params.get('code_path')
+        if code_path:
+            mount = docker.types.Mount(type='bind', source=code_path, target='/code')
+            mounts.append(mount)
+        
         response = client.containers.run(f"getcarrier/{container_name}",
                                          command=self.command,
-                                         mounts=[mount], stderr=True, remove=True,
+                                         mounts=mounts, stderr=True, remove=True,
                                          environment=self.env_vars)
         try:
             volume = client.volumes.get(lambda_id)
