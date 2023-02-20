@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 import re
@@ -10,7 +11,7 @@ from time import mktime, sleep
 from uuid import uuid4
 
 import docker
-from requests import get, post
+from requests import get, put
 
 from interceptor.constants import NAME_CONTAINER_MAPPING, UNZIP_DOCKER_COMPOSE, \
     UNZIP_DOCKERFILE
@@ -37,7 +38,7 @@ class LambdaExecutor:
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
 
     def execute_lambda(self):
-
+        logging.info(f'task {self.task}')
         container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
@@ -54,20 +55,21 @@ class LambdaExecutor:
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
-
+        logging.info(f'Container name {container_name}')
+        task_result_id = self.task["task_result_id"]
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
-            'task_id': self.task["task_id"],
             'task_duration': time.time() - self.start_time,
             'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
         }
+        self.logger.info(f'Task body {data}')
         headers = {
             "Content-Type": "application/json",
             'Authorization': f'bearer {self.token}'}
-        res = post(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}',
-                   headers=headers, data=dumps(data))
+        res = put(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}?task_result_id={task_result_id}',
+                  headers=headers, data=dumps(data))
         self.logger.info(f'Created task_results: {res.status_code, res.text}')
 
         if self.task.get("callback"):
@@ -78,6 +80,7 @@ class LambdaExecutor:
                        'content-type': 'application/json'}
             self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
             self.execute_lambda()
+        logging.info('Done.')
 
     def execute_in_kubernetes(self, container_name, cloud_settings):
         kubernetes_settings = {

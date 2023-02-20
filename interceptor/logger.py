@@ -24,15 +24,13 @@ if constants.LOKI_HOST:
         logger.error("Can't connect to loki")
 
 
-def get_centry_logger(labels: dict = None):
+def get_centry_logger(hostname: str, labels: dict = None):
     try:
         context = {
             "url": f"{constants.LOKI_HOST.replace('https://', 'http://')}:"
                    f"{constants.LOKI_PORT}/loki/api/v1/push",
-            "hostname": "interceptor", "labels": {"build_id": labels['build_id'],
-                                                  "project": labels["project_id"],
-                                                  "report_id": labels["report_id"],
-                                                  }}
+            "hostname": hostname, "labels": labels
+        }
         centry_logger = log_loki.get_logger(context)
     except KeyError:
         centry_logger = logger
