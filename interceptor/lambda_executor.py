@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import time
 import re
@@ -38,7 +37,7 @@ class LambdaExecutor:
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
 
     def execute_lambda(self):
-        logging.info(f'task {self.task}')
+        self.logger.info(f'task {self.task}')
         container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
@@ -55,7 +54,7 @@ class LambdaExecutor:
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
-        logging.info(f'Container name {container_name}')
+        self.logger.info(f'Container name {container_name}')
         task_result_id = self.task["task_result_id"]
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
@@ -80,7 +79,7 @@ class LambdaExecutor:
                        'content-type': 'application/json'}
             self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
             self.execute_lambda()
-        logging.info('Done.')
+        self.logger.info('Done.')
 
     def execute_in_kubernetes(self, container_name, cloud_settings):
         kubernetes_settings = {
