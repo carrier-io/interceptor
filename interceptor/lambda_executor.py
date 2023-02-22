@@ -38,6 +38,7 @@ class LambdaExecutor:
 
     def execute_lambda(self):
         self.logger.info(f'task {self.task}')
+        self.logger.info(f'event {self.event}')
         container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
@@ -45,16 +46,15 @@ class LambdaExecutor:
         try:
             cloud_settings = self.event["integration"]["clouds"]["kubernetes"]
         except (TypeError, KeyError):
-            log = self.execute_in_docker(container_name)
+            log, stats = self.execute_in_docker(container_name)
         else:
-            log = self.execute_in_kubernetes(container_name, cloud_settings)
+            log, stats = self.execute_in_kubernetes(container_name, cloud_settings)
 
         if container_name == "lambda:python3.7":
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
-        self.logger.info(f'Container name {container_name}')
         task_result_id = self.task["task_result_id"]
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
@@ -62,6 +62,7 @@ class LambdaExecutor:
             'log': log,
             'task_duration': time.time() - self.start_time,
             'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
+            'task_stats': stats
         }
         self.logger.info(f'Task body {data}')
         headers = {
@@ -98,7 +99,8 @@ class LambdaExecutor:
             sleep(5)
         logs = []
         job.log_status(logs)
-        return "".join(logs)
+        # TODO: grab stats from kubernetes
+        return "".join(logs), {}
 
     def execute_in_docker(self, container_name):
         lambda_id = str(uuid4())
@@ -110,7 +112,9 @@ class LambdaExecutor:
         response = client.containers.run(f"getcarrier/{container_name}",
                                          command=self.command,
                                          mounts=[mount], stderr=True, remove=True,
-                                         environment=self.env_vars)
+                                         environment=self.env_vars, detach=True)
+
+        logs = []
         try:
             volume = client.volumes.get(lambda_id)
             volume.remove(force=True)
@@ -118,11 +122,23 @@ class LambdaExecutor:
             self.logger.info("Failed to remove docker volume")
         shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
         try:
-            log = response.decode("utf-8", errors='ignore')
+            self.logger.info(f'container obj {response}')
+            log = response.logs(stream=True, follow=True)
+            stats = response.stats(decode=None, stream=False)
         except:
-            log = "\n\n{logs are not available}"
-
-        return log
+            return "\n\n{logs are not available}"
+        try:
+            while True:
+                line = next(log).decode("utf-8", errors='ignore')
+                self.logger.info(f'{container_name} - {line}')
+                logs.append(line)
+        except StopIteration:
+            self.logger.info(f'log stream ended for {container_name}')
+            logs = ''.join(logs)
+            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+            memory = match.group(1) if match else None
+            stats["memory_usage"] = memory
+            return logs, stats
 
     def download_artifact(self, lambda_id):
         os.mkdir(f'/tmp/{lambda_id}')
