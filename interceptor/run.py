@@ -98,7 +98,7 @@ def terminate_ec2_instances(
 @app.task(name="post_process")
 def post_process(
         galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
-        build_id, token=None, integration=[]
+        build_id, token=None, integration=[], exec_params = {}
 ):
     centry_logger = get_centry_logger({
         "build_id": build_id,
@@ -106,11 +106,16 @@ def post_process(
         "report_id": report_id,
     })
     centry_logger.info("Start post processing")
+    logs = ""
     try:
-        PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, bucket,
+        logs = PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket,
                       prefix, centry_logger, token,
-                      integration).results_post_processing()
+                      integration, exec_params).results_post_processing()
+        centry_logger.info(logs)
+        logger.info(logs)
     except Exception:
+        centry_logger.info(format_exc())
+        centry_logger.info(logs)
         centry_logger.info("Failed to run postprocessor")
 
 
