@@ -11,23 +11,27 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import logging
 import signal
+from json import dumps
 from os import environ
 from time import sleep
 from traceback import format_exc
 from typing import List
+from uuid import uuid4
 
 import boto3
 import requests
 from arbiter import Minion
-
-from interceptor import constants as c
+# from google.cloud import compute_v1
+from google.oauth2.service_account import Credentials
 from interceptor.containers_backend import KubernetesClient, DockerClient, Job, KubernetesJob
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger, get_centry_logger
 from interceptor.post_processor import PostProcessor
-from google.oauth2.service_account import Credentials
+
+from interceptor import constants as c
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -69,6 +73,7 @@ def terminate_gcp_instances(
         logger.error(format_exc())
         logger.info("Failed to terminate GCP instances")
 
+
 @app.task(name="terminate_ec2_instances")
 def terminate_ec2_instances(
         aws_access_key_id, aws_secret_access_key, region_name, fleet_id, launch_template_id
@@ -100,11 +105,14 @@ def post_process(
         galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
         build_id, token=None, integration=[], exec_params = {}
 ):
-    centry_logger = get_centry_logger({
-        "build_id": build_id,
-        "project_id": project_id,
-        "report_id": report_id,
-    })
+    centry_logger = get_centry_logger(
+        hostname="interceptor",
+        labels={
+            "build_id": build_id,
+            "project": project_id,
+            "report_id": report_id,
+        }
+    )
     centry_logger.info("Start post processing")
     logs = ""
     try:
@@ -160,8 +168,28 @@ def browsertime(
 
 @app.task(name="execute_lambda")
 def execute_lambda(task, event, galloper_url, token):
+    task["task_result_id"] = f'result_{uuid4()}'
+    headers = {
+        "Content-Type": "application/json",
+        'Authorization': f'bearer {token}'}
+    data = {
+        "task_result_id": task["task_result_id"],
+        "task_id": task['task_id'],
+    }
+    requests.post(f'{galloper_url}/api/v1/tasks/results/{task["project_id"]}',
+                  headers=headers, data=dumps(data))
+
+    centry_logger = get_centry_logger(
+        hostname=task.get('task_name'),
+        labels={
+            "task_id": task['task_id'],
+            "project": task['project_id'],
+            "task_result_id": task["task_result_id"],
+        }
+    )
+
     try:
-        LambdaExecutor(task, event, galloper_url, token).execute_lambda()
+        LambdaExecutor(task, event, galloper_url, token, logger=centry_logger).execute_lambda()
         return "Done"
     except Exception:
         logger.error(format_exc())
@@ -171,7 +199,14 @@ def execute_lambda(task, event, galloper_url, token):
 
 @app.task(name="execute_kuber")
 def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings):
-    centry_logger = get_centry_logger(execution_params)
+    centry_logger = get_centry_logger(
+        hostname="interceptor",
+        labels={
+            "build_id": execution_params['build_id'],
+            "project": execution_params['project_id'],
+            "report_id": execution_params['report_id'],
+        }
+    )
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
@@ -201,7 +236,14 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
 
 @app.task(name="execute")
 def execute_job(job_type, container, execution_params, job_name):
-    centry_logger = get_centry_logger(execution_params)
+    centry_logger = get_centry_logger(
+        hostname="interceptor",
+        labels={
+            "build_id": execution_params['build_id'],
+            "project": execution_params['project_id'],
+            "report_id": execution_params['report_id'],
+        }
+    )
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
