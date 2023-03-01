@@ -56,12 +56,16 @@ class LambdaExecutor:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
         task_result_id = self.task["task_result_id"]
+        try:
+            task_status = True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False
+        except:
+            task_status = False
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
             'task_duration': time.time() - self.start_time,
-            'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
+            'task_status': task_status,
             'task_stats': stats
         }
         self.logger.info(f'Task body {data}')
