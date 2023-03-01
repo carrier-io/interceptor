@@ -114,7 +114,7 @@ class LambdaExecutor:
                                          mounts=[mount], stderr=True, remove=True,
                                          environment=self.env_vars, detach=True)
 
-        logs = []
+        logs, stats = [], {}
         try:
             volume = client.volumes.get(lambda_id)
             volume.remove(force=True)
@@ -126,7 +126,7 @@ class LambdaExecutor:
             log = response.logs(stream=True, follow=True)
             stats = response.stats(decode=None, stream=False)
         except:
-            return "\n\n{logs are not available}"
+            return "\n\n{logs are not available}", stats
         try:
             while True:
                 line = next(log).decode("utf-8", errors='ignore')
@@ -138,7 +138,7 @@ class LambdaExecutor:
             match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
             memory = match.group(1) if match else None
             stats["memory_usage"] = memory
-            return logs, stats
+        return logs, stats
 
     def download_artifact(self, lambda_id):
         os.mkdir(f'/tmp/{lambda_id}')
