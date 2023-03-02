@@ -57,9 +57,9 @@ class LambdaExecutor:
             results = log.split("\n\n")[1]
         task_result_id = self.task["task_result_id"]
         try:
-            task_status = True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False
+            task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
         except:
-            task_status = False
+            task_status = "Failed"
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
