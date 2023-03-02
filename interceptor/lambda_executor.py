@@ -56,12 +56,16 @@ class LambdaExecutor:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
         task_result_id = self.task["task_result_id"]
+        try:
+            task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
+        except:
+            task_status = "Failed"
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
             'task_duration': time.time() - self.start_time,
-            'task_status': "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed",
+            'task_status': task_status,
             'task_stats': stats
         }
         self.logger.info(f'Task body {data}')
@@ -114,7 +118,7 @@ class LambdaExecutor:
                                          mounts=[mount], stderr=True, remove=True,
                                          environment=self.env_vars, detach=True)
 
-        logs = []
+        logs, stats = [], {}
         try:
             volume = client.volumes.get(lambda_id)
             volume.remove(force=True)
@@ -126,7 +130,7 @@ class LambdaExecutor:
             log = response.logs(stream=True, follow=True)
             stats = response.stats(decode=None, stream=False)
         except:
-            return "\n\n{logs are not available}"
+            return "\n\n{logs are not available}", stats
         try:
             while True:
                 line = next(log).decode("utf-8", errors='ignore')
@@ -138,7 +142,7 @@ class LambdaExecutor:
             match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
             memory = match.group(1) if match else None
             stats["memory_usage"] = memory
-            return logs, stats
+        return logs, stats
 
     def download_artifact(self, lambda_id):
         os.mkdir(f'/tmp/{lambda_id}')
