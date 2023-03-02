@@ -61,7 +61,7 @@ class LambdaExecutor:
             'results': results,
             'log': log,
             'task_duration': time.time() - self.start_time,
-            'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
+            'task_status': "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed",
             'task_stats': stats
         }
         self.logger.info(f'Task body {data}')
