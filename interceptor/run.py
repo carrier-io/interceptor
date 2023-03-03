@@ -175,6 +175,7 @@ def execute_lambda(task, event, galloper_url, token):
     data = {
         "task_result_id": task["task_result_id"],
         "task_id": task['task_id'],
+        "task_status": "In progress...",
     }
     requests.post(f'{galloper_url}/api/v1/tasks/results/{task["project_id"]}',
                   headers=headers, data=dumps(data))
