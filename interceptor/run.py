@@ -114,16 +114,18 @@ def post_process(
         }
     )
     centry_logger.info("Start post processing")
-    logs = ""
     try:
-        logs = PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket,
+        cid = PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket,
                       prefix, centry_logger, token,
                       integration, exec_params).results_post_processing()
-        centry_logger.info(logs)
-        logger.info(logs)
+        while cid.status != "exited":
+            sleep(10)
+            global stop_task
+            if stop_task:
+                stop_task = False
+                exit(0)
     except Exception:
         centry_logger.info(format_exc())
-        centry_logger.info(logs)
         centry_logger.info("Failed to run postprocessor")
 
 
@@ -250,7 +252,7 @@ def execute_job(job_type, container, execution_params, job_name):
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
-        return
+        return "Job Type not found"
 
     client = DockerClient(logger=centry_logger)
     client.info()
@@ -261,7 +263,7 @@ def execute_job(job_type, container, execution_params, job_name):
                                                   job_name)
     except:
         centry_logger.error(f"Failed to run docker container {container}")
-        return
+        return f"Failed to run docker container {container}"
     last_logs = []
     while not job.is_finished():
         sleep(10)
@@ -270,12 +272,12 @@ def execute_job(job_type, container, execution_params, job_name):
             stop_task = False
             job.stop_job()
             centry_logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
-            return
+            exit(0)
         try:
             job.log_status(last_logs)
         except:
             break
-    return
+    return "Done"
 
 
 def main():

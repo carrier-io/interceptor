@@ -67,10 +67,6 @@ class PostProcessor:
                     "bucket": self.bucket, "build_id": self.build_id, "report_id": self.report_id,
                     "integrations": self.integration, "exec_params": self.exec_params}
         response = client.containers.run("getcarrier/performance_results_processing:latest",
-                                         stderr=True, remove=True,
+                                         stderr=True, remove=True, detach=True,
                                          environment=env_vars)
-        try:
-            log = response.decode("utf-8", errors='ignore')
-        except:
-            log = "\n\n{logs are not available}"
-        self.logger.info(log)
+        return response
