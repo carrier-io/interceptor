@@ -239,16 +239,20 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
 
 @app.task(name="execute")
 def execute_job(job_type, container, execution_params, job_name):
-    labels = {
-        "project": execution_params['project_id'],
-        "report_id": execution_params['report_id'],
-    }
-    if execution_params.get('build_id', None):
-        labels["build_id"] = execution_params['build_id']
-    centry_logger = get_centry_logger(
-        hostname="interceptor",
-        labels=labels
-    )
+    try:
+        labels = {
+            "project": execution_params['project_id'],
+            "report_id": execution_params['report_id'],
+        }
+        if execution_params.get('build_id', None):
+            labels["build_id"] = execution_params['build_id']
+        centry_logger = get_centry_logger(
+            hostname="interceptor",
+            labels=labels
+        )
+    except Exception as e:
+        print(e)
+        centry_logger = logger
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
