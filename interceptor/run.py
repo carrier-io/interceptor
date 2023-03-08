@@ -120,13 +120,21 @@ def post_process(
                       integration, exec_params).results_post_processing()
         while cid.status != "exited":
             sleep(10)
+            try:
+                cid.reload()
+            except:
+                break
             global stop_task
             if stop_task:
                 stop_task = False
                 exit(0)
+        return "Done"
+
     except Exception:
         centry_logger.info(format_exc())
         centry_logger.info("Failed to run postprocessor")
+        return "Failed"
+
 
 
 @app.task(name="browsertime")
