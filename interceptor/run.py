@@ -203,7 +203,6 @@ def execute_job(job_type, container, execution_params, job_name):
         return
 
     client = DockerClient(logger=centry_logger)
-    client.info()
     centry_logger.info(f"Executing: {job_type} on {container} with name {job_name}")
     centry_logger.info(f"Execution params: {execution_params}")
     try:

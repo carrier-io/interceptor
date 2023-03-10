@@ -36,7 +36,10 @@ class LambdaExecutor:
                             f'{self.task["project_id"]}/{self.task["zippath"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
         
-        self.execution_params = loads(self.event[0]['execution_params'])
+        self.execution_params = None
+        if self.event:
+            value = self.event[0].get('execution_params', None)
+            self.execution_params = loads(value) if value else value
 
     def execute_lambda(self):
 
