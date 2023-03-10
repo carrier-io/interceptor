@@ -57,7 +57,7 @@ class DockerJob(Job):
         return self.cid.status == "exited"
 
     def stop_job(self):
-        self.cid.stop(timeout=60)
+        self.cid.stop(timeout=5)
 
     def log_status(self, last_logs: list):
         self.cid.reload()

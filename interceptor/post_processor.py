@@ -1,6 +1,6 @@
 import json
 from os import path, environ
-
+import docker
 import requests
 
 from interceptor.lambda_executor import LambdaExecutor
@@ -9,19 +9,21 @@ from interceptor.logger import logger as global_logger
 
 class PostProcessor:
 
-    def __init__(self, galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
-            logger=global_logger, token=None, integration=[]
+    def __init__(self, galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket, prefix,
+            logger=global_logger, token=None, integration=[], exec_params={}
     ):
         self.logger = logger
         self.galloper_url = galloper_url
         self.project_id = project_id
         self.galloper_web_hook = galloper_web_hook
+        self.build_id = build_id
         self.bucket = bucket
         self.prefix = prefix
         self.config_file = '{}'
         self.token = token
         self.integration = integration
         self.report_id = report_id
+        self.exec_params = exec_params
 
     def update_test_status(self, status, percentage, description):
         data = {"test_status": {"status": status, "percentage": percentage,
@@ -35,7 +37,7 @@ class PostProcessor:
         except:
             self.logger.info(response.text)
 
-    def results_post_processing(self):
+    def results_post_processing_old(self):
         if self.galloper_web_hook:
             if path.exists('/tmp/config.yaml'):
                 with open("/tmp/config.yaml", "r") as f:
@@ -58,3 +60,13 @@ class PostProcessor:
             except Exception as exc:
                 self.update_test_status("Error", 100, f"Failed to start postprocessing")
                 raise exc
+
+    def results_post_processing(self):
+        client = docker.from_env()
+        env_vars = {"base_url": self.galloper_url, "token": self.token, "project_id": self.project_id,
+                    "bucket": self.bucket, "build_id": self.build_id, "report_id": self.report_id,
+                    "integrations": self.integration, "exec_params": self.exec_params}
+        response = client.containers.run("getcarrier/performance_results_processing:latest",
+                                         stderr=True, remove=True, detach=True,
+                                         environment=env_vars)
+        return response

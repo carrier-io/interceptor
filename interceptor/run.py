@@ -11,23 +11,27 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import logging
 import signal
+from json import dumps
 from os import environ
 from time import sleep
 from traceback import format_exc
 from typing import List
+from uuid import uuid4
 
 import boto3
 import requests
 from arbiter import Minion
-
-from interceptor import constants as c
+# from google.cloud import compute_v1
+from google.oauth2.service_account import Credentials
 from interceptor.containers_backend import KubernetesClient, DockerClient, Job, KubernetesJob
 from interceptor.jobs_wrapper import JobsWrapper
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger, get_centry_logger
 from interceptor.post_processor import PostProcessor
-from google.oauth2.service_account import Credentials
+
+from interceptor import constants as c
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -69,6 +73,7 @@ def terminate_gcp_instances(
         logger.error(format_exc())
         logger.info("Failed to terminate GCP instances")
 
+
 @app.task(name="terminate_ec2_instances")
 def terminate_ec2_instances(
         aws_access_key_id, aws_secret_access_key, region_name, fleet_id, launch_template_id
@@ -98,20 +103,38 @@ def terminate_ec2_instances(
 @app.task(name="post_process")
 def post_process(
         galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
-        build_id, token=None, integration=[]
+        build_id, token=None, integration=[], exec_params = {}
 ):
-    centry_logger = get_centry_logger({
-        "build_id": build_id,
-        "project_id": project_id,
-        "report_id": report_id,
-    })
+    centry_logger = get_centry_logger(
+        hostname="interceptor",
+        labels={
+            "build_id": build_id,
+            "project": project_id,
+            "report_id": report_id,
+        }
+    )
     centry_logger.info("Start post processing")
     try:
-        PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, bucket,
+        cid = PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket,
                       prefix, centry_logger, token,
-                      integration).results_post_processing()
+                      integration, exec_params).results_post_processing()
+        while cid.status != "exited":
+            sleep(10)
+            try:
+                cid.reload()
+            except:
+                break
+            global stop_task
+            if stop_task:
+                stop_task = False
+                exit(0)
+        return "Done"
+
     except Exception:
+        centry_logger.info(format_exc())
         centry_logger.info("Failed to run postprocessor")
+        return "Failed"
+
 
 
 @app.task(name="browsertime")
@@ -155,8 +178,29 @@ def browsertime(
 
 @app.task(name="execute_lambda")
 def execute_lambda(task, event, galloper_url, token):
+    task["task_result_id"] = f'result_{uuid4()}'
+    headers = {
+        "Content-Type": "application/json",
+        'Authorization': f'bearer {token}'}
+    data = {
+        "task_result_id": task["task_result_id"],
+        "task_id": task['task_id'],
+        "task_status": "In progress...",
+    }
+    requests.post(f'{galloper_url}/api/v1/tasks/results/{task["project_id"]}',
+                  headers=headers, data=dumps(data))
+
+    centry_logger = get_centry_logger(
+        hostname=task.get('task_name'),
+        labels={
+            "task_id": task['task_id'],
+            "project": task['project_id'],
+            "task_result_id": task["task_result_id"],
+        }
+    )
+
     try:
-        LambdaExecutor(task, event, galloper_url, token).execute_lambda()
+        LambdaExecutor(task, event, galloper_url, token, logger=centry_logger).execute_lambda()
         return "Done"
     except Exception:
         logger.error(format_exc())
@@ -166,7 +210,14 @@ def execute_lambda(task, event, galloper_url, token):
 
 @app.task(name="execute_kuber")
 def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings):
-    centry_logger = get_centry_logger(execution_params)
+    centry_logger = get_centry_logger(
+        hostname="interceptor",
+        labels={
+            "build_id": execution_params['build_id'],
+            "project": execution_params['project_id'],
+            "report_id": execution_params['report_id'],
+        }
+    )
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
@@ -196,11 +247,24 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
 
 @app.task(name="execute")
 def execute_job(job_type, container, execution_params, job_name):
-    centry_logger = get_centry_logger(execution_params)
+    try:
+        labels = {
+            "project": execution_params['project_id'],
+            "report_id": execution_params['report_id'],
+        }
+        if execution_params.get('build_id', None):
+            labels["build_id"] = execution_params['build_id']
+        centry_logger = get_centry_logger(
+            hostname="interceptor",
+            labels=labels
+        )
+    except Exception as e:
+        print(e)
+        centry_logger = logger
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
-        return
+        return "Job Type not found"
 
     client = DockerClient(logger=centry_logger)
     centry_logger.info(f"Executing: {job_type} on {container} with name {job_name}")
@@ -210,7 +274,7 @@ def execute_job(job_type, container, execution_params, job_name):
                                                   job_name)
     except:
         centry_logger.error(f"Failed to run docker container {container}")
-        return
+        return f"Failed to run docker container {container}"
     last_logs = []
     while not job.is_finished():
         sleep(10)
@@ -219,12 +283,12 @@ def execute_job(job_type, container, execution_params, job_name):
             stop_task = False
             job.stop_job()
             centry_logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
-            return
+            exit(0)
         try:
             job.log_status(last_logs)
         except:
             break
-    return
+    return "Done"
 
 
 def main():

@@ -10,7 +10,7 @@ from time import mktime, sleep
 from uuid import uuid4
 
 import docker
-from requests import get, post
+from requests import get, put
 
 from interceptor.constants import NAME_CONTAINER_MAPPING, UNZIP_DOCKER_COMPOSE, \
     UNZIP_DOCKERFILE
@@ -42,7 +42,8 @@ class LambdaExecutor:
             self.execution_params = loads(value) if value else value
 
     def execute_lambda(self):
-
+        self.logger.info(f'task {self.task}')
+        self.logger.info(f'event {self.event}')
         container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
@@ -50,29 +51,34 @@ class LambdaExecutor:
         try:
             cloud_settings = self.event["integration"]["clouds"]["kubernetes"]
         except (TypeError, KeyError):
-            log = self.execute_in_docker(container_name)
+            log, stats = self.execute_in_docker(container_name)
         else:
-            log = self.execute_in_kubernetes(container_name, cloud_settings)
+            log, stats = self.execute_in_kubernetes(container_name, cloud_settings)
 
         if container_name == "lambda:python3.7":
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.split("\n\n")[1]
-
+        task_result_id = self.task["task_result_id"]
+        try:
+            task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
+        except:
+            task_status = "Failed"
         data = {
             "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
-            'task_id': self.task["task_id"],
             'task_duration': time.time() - self.start_time,
-            'task_status': True if 200 <= int(json.loads(results).get('statusCode')) <= 299 else False,
+            'task_status': task_status,
+            'task_stats': stats
         }
+        self.logger.info(f'Task body {data}')
         headers = {
             "Content-Type": "application/json",
             'Authorization': f'bearer {self.token}'}
-        res = post(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}',
-                   headers=headers, data=dumps(data))
+        res = put(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}?task_result_id={task_result_id}',
+                  headers=headers, data=dumps(data))
         self.logger.info(f'Created task_results: {res.status_code, res.text}')
 
         if self.task.get("callback"):
@@ -83,6 +89,7 @@ class LambdaExecutor:
                        'content-type': 'application/json'}
             self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
             self.execute_lambda()
+        self.logger.info('Done.')
 
     def execute_in_kubernetes(self, container_name, cloud_settings):
         kubernetes_settings = {
@@ -101,7 +108,8 @@ class LambdaExecutor:
             sleep(5)
         logs = []
         job.log_status(logs)
-        return "".join(logs)
+        # TODO: grab stats from kubernetes
+        return "".join(logs), {}
 
     def execute_in_docker(self, container_name):
         lambda_id = str(uuid4())
@@ -119,7 +127,9 @@ class LambdaExecutor:
         response = client.containers.run(f"getcarrier/{container_name}",
                                          command=self.command,
                                          mounts=mounts, stderr=True, remove=True,
-                                         environment=self.env_vars)
+                                         environment=self.env_vars, detach=True)
+
+        logs, stats = [], {}
         try:
             volume = client.volumes.get(lambda_id)
             volume.remove(force=True)
@@ -127,11 +137,23 @@ class LambdaExecutor:
             self.logger.info("Failed to remove docker volume")
         shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
         try:
-            log = response.decode("utf-8", errors='ignore')
+            self.logger.info(f'container obj {response}')
+            log = response.logs(stream=True, follow=True)
+            stats = response.stats(decode=None, stream=False)
         except:
-            log = "\n\n{logs are not available}"
-
-        return log
+            return "\n\n{logs are not available}", stats
+        try:
+            while True:
+                line = next(log).decode("utf-8", errors='ignore')
+                self.logger.info(f'{container_name} - {line}')
+                logs.append(line)
+        except StopIteration:
+            self.logger.info(f'log stream ended for {container_name}')
+            logs = ''.join(logs)
+            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+            memory = match.group(1) if match else None
+            stats["memory_usage"] = memory
+        return logs, stats
 
     def download_artifact(self, lambda_id):
         os.mkdir(f'/tmp/{lambda_id}')
