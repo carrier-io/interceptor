@@ -15,10 +15,12 @@ import logging
 import signal
 from json import dumps
 from os import environ
-from time import sleep
+from time import sleep, mktime
+from datetime import datetime
 from traceback import format_exc
 from typing import List
 from uuid import uuid4
+
 
 import boto3
 import requests
@@ -176,6 +178,7 @@ def execute_lambda(task, event, galloper_url, token):
         "task_result_id": task["task_result_id"],
         "task_id": task['task_id'],
         "task_status": "In progress...",
+        "ts": int(mktime(datetime.utcnow().timetuple())),
     }
     requests.post(f'{galloper_url}/api/v1/tasks/results/{task["project_id"]}',
                   headers=headers, data=dumps(data))

@@ -3,10 +3,9 @@ import os
 import time
 import re
 import shutil
-from datetime import datetime
 from json import dumps, loads
 from subprocess import Popen, PIPE
-from time import mktime, sleep
+from time import sleep
 from uuid import uuid4
 
 import docker
@@ -61,7 +60,6 @@ class LambdaExecutor:
         except:
             task_status = "Failed"
         data = {
-            "ts": int(mktime(datetime.utcnow().timetuple())),
             'results': results,
             'log': log,
             'task_duration': time.time() - self.start_time,
