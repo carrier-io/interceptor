@@ -136,7 +136,6 @@ def post_process(
         return "Failed"
 
 
-
 @app.task(name="browsertime")
 def browsertime(
         galloper_url, project_id, token, bucket, filename, url, view='1920x1080',
@@ -272,7 +271,7 @@ def execute_job(job_type, container, execution_params, job_name):
     try:
         job: Job = getattr(JobsWrapper, job_type)(client, container, execution_params,
                                                   job_name)
-    except:
+    except Exception as e:
         centry_logger.error(f"Failed to run docker container {container}")
         return f"Failed to run docker container {container}"
     last_logs = []

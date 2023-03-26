@@ -60,6 +60,25 @@ class JobsWrapper(object):
                           mounts=docker_mounts)
 
     @staticmethod
+    def dependency(client: Client, container, execution_params, job_name, *args, **kwargs):
+        #
+        docker_container = container
+        docker_name = f"dependency_{uuid4()}"[:36]
+        docker_command = execution_params["cmd"]
+        docker_environment = {
+            "project_id": execution_params["GALLOPER_PROJECT_ID"],
+            "galloper_url": execution_params["GALLOPER_URL"],
+            "token": execution_params["GALLOPER_AUTH_TOKEN"],
+        }
+        docker_mounts = list()
+        #
+        return client.run(docker_container, name=docker_name, nano_cpus=c.CONTAINER_CPU_QUOTA,
+                          mem_limit=c.CONTAINER_MEMORY_QUOTA, environment=docker_environment,
+                          tty=True, detach=True, remove=c.REMOVE_CONTAINERS,
+                          auto_remove=c.REMOVE_CONTAINERS, user="0:0", command=docker_command,
+                          mounts=docker_mounts)
+
+    @staticmethod
     def perfui(client: Client, container, execution_params, job_name, *args, **kwargs):
         return JobsWrapper.free_style(client, container, execution_params, job_name)
 
