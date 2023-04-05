@@ -1,17 +1,23 @@
 import json
 from os import path, environ
+from typing import Optional
+
 import docker
 import requests
 
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger as global_logger
+from interceptor.utils import build_api_url
 
 
 class PostProcessor:
 
-    def __init__(self, galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket, prefix,
-            logger=global_logger, token=None, integration=[], exec_params={}
-    ):
+    def __init__(self, galloper_url: str, project_id: int, galloper_web_hook: str,
+                 report_id, build_id: str, bucket: str, prefix: str,
+                 logger=global_logger, token: Optional[str] = None,
+                 integration: Optional[list] = None, exec_params: Optional[dict] = None,
+                 mode: str = 'default', **kwargs
+                 ):
         self.logger = logger
         self.galloper_url = galloper_url
         self.project_id = project_id
@@ -21,17 +27,23 @@ class PostProcessor:
         self.prefix = prefix
         self.config_file = '{}'
         self.token = token
-        self.integration = integration
+        self.integration = integration if integration else []
         self.report_id = report_id
-        self.exec_params = exec_params
+        self.exec_params = exec_params if exec_params else {}
+        self.mode = mode
+        self.api_version = kwargs.get('api_version', 1)
+        self.api_headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
+        }
 
     def update_test_status(self, status, percentage, description):
         data = {"test_status": {"status": status, "percentage": percentage,
                                 "description": description}}
-        headers = {'content-type': 'application/json', 'Authorization': f'bearer {self.token}'}
-        url = f'{self.galloper_url}/api/v1/backend_performance/report_status/' \
+        status_url = build_api_url('backend_performance', 'report_status', mode=self.mode, api_version=self.api_version)
+        url = f'{self.galloper_url}{status_url}/' \
               f'{self.project_id}/{self.report_id}'
-        response = requests.put(url, json=data, headers=headers)
+        response = requests.put(url, json=data, headers=self.api_headers)
         try:
             self.logger.info(response.json()["message"])
         except:
@@ -49,11 +61,10 @@ class PostProcessor:
                      'config_file': json.dumps(self.config_file),
                      'bucket': self.bucket, 'prefix': self.prefix, 'token': self.token,
                      'integration': self.integration, "report_id": self.report_id}
-            endpoint = f"api/v1/tasks/task/{self.project_id}/" \
+            task_url = build_api_url('tasks', 'task', mode=self.mode, api_version=self.api_version)
+            endpoint = f"{task_url}/{self.project_id}/" \
                        f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
-            headers = {'Authorization': f'bearer {self.token}',
-                       'content-type': 'application/json'}
-            task = requests.get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
+            task = requests.get(f"{self.galloper_url}{endpoint}", headers=self.api_headers).json()
             try:
                 LambdaExecutor(task, event, self.galloper_url, self.token,
                                self.logger).execute_lambda()
