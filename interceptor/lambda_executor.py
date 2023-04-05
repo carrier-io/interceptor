@@ -15,23 +15,33 @@ from interceptor.constants import NAME_CONTAINER_MAPPING, UNZIP_DOCKER_COMPOSE, 
     UNZIP_DOCKERFILE
 from interceptor.containers_backend import KubernetesClient
 from interceptor.logger import logger as global_logger
+from interceptor.utils import build_api_url
 
 
 class LambdaExecutor:
 
-    def __init__(self, task, event, galloper_url, token, logger=global_logger):
+    def __init__(self, task: dict, event, galloper_url: str, token: str,
+                 mode: str = 'default', logger=global_logger, **kwargs):
         self.logger = logger
         self.task = task
         self.event = event
         self.galloper_url = galloper_url
         self.token = token
+        self.mode = mode
         self.start_time = time.time()
+        self.api_version = kwargs.get('api_version', 1)
+        self.api_headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
+        }
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
         if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event[0]:
             self.env_vars.update(self.event[0]["cc_env_vars"])
 
-        self.artifact_url = f'{self.galloper_url}/api/v1/artifacts/artifact/' \
+        artifact_url_part = build_api_url('artifacts', 'artifact',
+                                          mode=self.mode, api_version=self.api_version)
+        self.artifact_url = f'{self.galloper_url}{artifact_url_part}/' \
                             f'{self.task["project_id"]}/{self.task["zippath"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
 
@@ -67,31 +77,31 @@ class LambdaExecutor:
             'task_stats': stats
         }
         self.logger.info(f'Task body {data}')
-        headers = {
-            "Content-Type": "application/json",
-            'Authorization': f'bearer {self.token}'}
-        res = put(f'{self.galloper_url}/api/v1/tasks/results/{self.task["project_id"]}?task_result_id={task_result_id}',
-                  headers=headers, data=dumps(data))
+        results_url = build_api_url('tasks', 'results', mode=self.mode, api_version=self.api_version)
+        res = put(
+            f'{self.galloper_url}{results_url}/{self.task["project_id"]}?task_result_id={task_result_id}',
+            headers=self.api_headers, data=dumps(data)
+        )
         self.logger.info(f'Created task_results: {res.status_code, res.text}')
 
-        if self.task.get("callback"):
-            for each in self.event:
-                each['result'] = results
-            endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
-            headers = {'Authorization': f'bearer {self.token}',
-                       'content-type': 'application/json'}
-            self.task = get(f"{self.galloper_url}/{endpoint}", headers=headers).json()
-            self.execute_lambda()
+        # this was here to chain task executions, but is temporary disabled
+        # if self.task.get("callback"):
+        #     for each in self.event:
+        #         each['result'] = results
+        #     endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
+        #     self.task = get(f"{self.galloper_url}/{endpoint}", headers=self.api_headers).json()
+        #     self.execute_lambda()
         self.logger.info('Done.')
 
-    def execute_in_kubernetes(self, container_name, cloud_settings):
+    def execute_in_kubernetes(self, container_name: str, cloud_settings: dict):
         kubernetes_settings = {
             "host": cloud_settings["hostname"],
             "token": cloud_settings["k8s_token"],
             "namespace": cloud_settings["namespace"],
             "jobs_count": 1,
             "logger": self.logger,
-            "secure_connection": cloud_settings["secure_connection"]
+            "secure_connection": cloud_settings["secure_connection"],
+            "mode": self.mode
         }
         client = KubernetesClient(**kubernetes_settings)
         job = client.run_lambda(container_name, self.token, self.env_vars, self.artifact_url,

@@ -18,7 +18,7 @@ from os import environ
 from time import sleep, mktime
 from datetime import datetime
 from traceback import format_exc
-from typing import List
+from typing import List, Optional
 from uuid import uuid4
 
 
@@ -34,6 +34,7 @@ from interceptor.logger import logger, get_centry_logger
 from interceptor.post_processor import PostProcessor
 
 from interceptor import constants as c
+from interceptor.utils import build_api_url
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
@@ -104,8 +105,10 @@ def terminate_ec2_instances(
 
 @app.task(name="post_process")
 def post_process(
-        galloper_url, project_id, galloper_web_hook, report_id, bucket, prefix,
-        build_id, token=None, integration=[], exec_params = {}
+        galloper_url: str, project_id: int, galloper_web_hook,
+        report_id, bucket, prefix,
+        build_id: str, token: Optional[str] = None,
+        integration: Optional[list] = None, exec_params: Optional[dict] = None
 ):
     centry_logger = get_centry_logger(
         hostname="interceptor",
@@ -117,9 +120,11 @@ def post_process(
     )
     centry_logger.info("Start post processing")
     try:
-        cid = PostProcessor(galloper_url, project_id, galloper_web_hook, report_id, build_id, bucket,
-                      prefix, centry_logger, token,
-                      integration, exec_params).results_post_processing()
+        cid = PostProcessor(
+            galloper_url, project_id, galloper_web_hook, report_id,
+            build_id, bucket, prefix, centry_logger, token,
+            integration, exec_params
+        ).results_post_processing()
         while cid.status != "exited":
             sleep(10)
             try:
@@ -179,20 +184,23 @@ def browsertime(
 
 
 @app.task(name="execute_lambda")
-def execute_lambda(task, event, galloper_url, token):
+def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str = 'default', **kwargs) -> str:
     task["task_result_id"] = f'result_{uuid4()}'
     headers = {
-        "Content-Type": "application/json",
-        'Authorization': f'bearer {token}'}
+        'Content-Type': 'application/json',
+        'Authorization': f'{kwargs.get("token_type", "bearer")} {token}'
+    }
     data = {
         "task_result_id": task["task_result_id"],
         "task_id": task['task_id'],
         "task_status": "In progress...",
         "ts": int(mktime(datetime.utcnow().timetuple())),
     }
-    requests.post(f'{galloper_url}/api/v1/tasks/results/{task["project_id"]}',
-                  headers=headers, data=dumps(data))
-
+    results_url = build_api_url('tasks', 'results', mode=mode, api_version=kwargs.get('api_version', 1))
+    requests.post(
+        f'{galloper_url}{results_url}/{task["project_id"]}',
+        headers=headers, data=dumps(data)
+    )
     centry_logger = get_centry_logger(
         hostname=task.get('task_name'),
         labels={
@@ -201,18 +209,18 @@ def execute_lambda(task, event, galloper_url, token):
             "task_result_id": task["task_result_id"],
         }
     )
-
     try:
-        LambdaExecutor(task, event, galloper_url, token, logger=centry_logger).execute_lambda()
+        LambdaExecutor(task, event, galloper_url, token, mode=mode, logger=centry_logger, **kwargs).execute_lambda()
         return "Done"
-    except Exception:
+    except Exception as e:
         logger.error(format_exc())
         logger.info(f"Failed to execute {task['task_name']} lambda")
+        logger.info(str(e))
         return "Failed"
 
 
 @app.task(name="execute_kuber")
-def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings):
+def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings: dict, mode: str = 'default'):
     centry_logger = get_centry_logger(
         hostname="interceptor",
         labels={
@@ -226,7 +234,9 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         centry_logger.error("Job Type not found")
         return
 
-    client = KubernetesClient(**kubernetes_settings, logger=centry_logger)
+    kubernetes_settings['mode'] = mode
+    kubernetes_settings['logger'] = centry_logger
+    client = KubernetesClient(**kubernetes_settings)
     try:
         job: KubernetesJob = getattr(JobsWrapper, job_type)(client, container,
                                                             execution_params, job_name)
@@ -297,7 +307,9 @@ def execute_job(job_type, container, execution_params, job_name):
 
 def main():
     if QUEUE_NAME != "__internal":
-        url = f"{c.LOKI_HOST}/api/v1/projects/rabbitmq/{VHOST}"
+        # todo: mode and api_version need to be taken from env?
+        rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration', api_version=1)
+        url = f"{c.LOKI_HOST}{rabbit_url}/{VHOST}"
         data = {"name": QUEUE_NAME}
         headers = {'content-type': 'application/json'}
         if TOKEN:
