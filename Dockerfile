@@ -13,7 +13,8 @@ COPY interceptor /tmp/interceptor
 
 RUN pip install requests
 RUN pip install grpcio  # to fail fast
-RUN cd /tmp && python setup.py install && rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
+RUN cd /tmp && python setup.py install
+RUN rm -rf /tmp/interceptor /tmp/requirements.txt /tmp/setup.py
 ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
 RUN pip install git+https://github.com/carrier-io/arbiter.git
