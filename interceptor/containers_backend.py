@@ -10,6 +10,7 @@ from kubernetes.client import ApiClient, V1EnvVar, ApiException, V1SecurityConte
     V1Volume
 
 from interceptor import constants as c
+from interceptor.utils import build_api_url
 
 NANO_TO_MILL_MULTIPLIER = 1000000
 
@@ -171,7 +172,8 @@ class KubernetesClient(Client):
             self, logger, token, host, jobs_count: int = 1,
             secure_connection: bool = False,
             namespace: str = "default",
-            scaling_cluster: bool = False
+            scaling_cluster: bool = False,
+            mode: str = 'default', **kwargs
     ):
         self.namespace = namespace
         self.jobs_count = jobs_count
@@ -180,6 +182,8 @@ class KubernetesClient(Client):
         self.secure_connection = secure_connection
         self.logger = logger
         self.scaling_cluster = scaling_cluster
+        self.mode = mode
+        self.api_version = kwargs.get('api_version', 1)
 
         self.api_client = self._prepare_api_client()
         self.batch_v1 = client.BatchV1Api(self.api_client)
@@ -198,8 +202,9 @@ class KubernetesClient(Client):
 
         return ApiClient(configuration)
 
-    def get_capacity(self, url, bearer_token):
-        url = f"{url}/api/v1/kubernetes/get_available_resources"
+    def get_capacity(self, url: str, bearer_token: str):
+        kuber_url = build_api_url('kubernetes', 'get_available_resources', mode=self.mode, api_version=self.api_version)
+        url = f"{url}{kuber_url}"
         data = {
             "hostname": self.host,
             "k8s_token": {"value": self.token, "from_secrets": False},
