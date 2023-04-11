@@ -138,18 +138,14 @@ class LambdaExecutor:
                                          environment=self.env_vars, detach=True)
 
         logs, stats = [], {}
-        try:
-            volume = client.volumes.get(lambda_id)
-            volume.remove(force=True)
-        except:
-            self.logger.info("Failed to remove docker volume")
-        shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
+
         try:
             self.logger.info(f'container obj {response}')
             log = response.logs(stream=True, follow=True)
             stats = response.stats(decode=None, stream=False)
         except:
             return "\n\n{logs are not available}", stats
+
         try:
             while True:
                 line = next(log).decode("utf-8", errors='ignore')
@@ -161,6 +157,14 @@ class LambdaExecutor:
             match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
             memory = match.group(1) if match else None
             stats["memory_usage"] = memory
+
+        try:
+            shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
+            volume = client.volumes.get(lambda_id)
+            volume.remove(force=True)
+        except Exception as e:
+            self.logger.info(e)
+            self.logger.info("Failed to remove docker volume")
         return logs, stats
 
     def download_artifact(self, lambda_id):
