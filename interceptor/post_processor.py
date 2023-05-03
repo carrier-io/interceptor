@@ -5,6 +5,7 @@ from typing import Optional
 import docker
 import requests
 
+from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
@@ -12,12 +13,13 @@ from interceptor.utils import build_api_url
 
 class PostProcessor:
 
-    def __init__(self, galloper_url: str, project_id: int, galloper_web_hook: str,
-                 report_id, build_id: str, bucket: str, prefix: str,
-                 logger=global_logger, token: Optional[str] = None,
-                 integration: Optional[list] = None, exec_params: Optional[dict] = None,
-                 mode: str = 'default', **kwargs
-                 ):
+    def __init__(
+            self, galloper_url: str, project_id: int, galloper_web_hook: str,
+            report_id, build_id: str, bucket: str, prefix: str,
+            logger=global_logger, token: Optional[str] = None,
+            integration: Optional[list] = None, exec_params: Optional[dict] = None,
+            mode: str = 'default', **kwargs
+    ):
         self.logger = logger
         self.galloper_url = galloper_url
         self.project_id = project_id
@@ -40,7 +42,8 @@ class PostProcessor:
     def update_test_status(self, status, percentage, description):
         data = {"test_status": {"status": status, "percentage": percentage,
                                 "description": description}}
-        status_url = build_api_url('backend_performance', 'report_status', mode=self.mode, api_version=self.api_version)
+        status_url = build_api_url('backend_performance', 'report_status', mode=self.mode,
+                                   api_version=self.api_version)
         url = f'{self.galloper_url}{status_url}/' \
               f'{self.project_id}/{self.report_id}'
         response = requests.put(url, json=data, headers=self.api_headers)
@@ -61,10 +64,12 @@ class PostProcessor:
                      'config_file': json.dumps(self.config_file),
                      'bucket': self.bucket, 'prefix': self.prefix, 'token': self.token,
                      'integration': self.integration, "report_id": self.report_id}
-            task_url = build_api_url('tasks', 'task', mode=self.mode, api_version=self.api_version)
+            task_url = build_api_url('tasks', 'task', mode=self.mode,
+                                     api_version=self.api_version)
             endpoint = f"{task_url}/{self.project_id}/" \
                        f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
-            task = requests.get(f"{self.galloper_url}{endpoint}", headers=self.api_headers).json()
+            task = requests.get(f"{self.galloper_url}{endpoint}",
+                                headers=self.api_headers).json()
             try:
                 LambdaExecutor(task, event, self.galloper_url, self.token,
                                self.logger).execute_lambda()
@@ -73,11 +78,39 @@ class PostProcessor:
                 raise exc
 
     def results_post_processing(self):
-        client = docker.from_env()
-        env_vars = {"base_url": self.galloper_url, "token": self.token, "project_id": self.project_id,
-                    "bucket": self.bucket, "build_id": self.build_id, "report_id": self.report_id,
+
+        env_vars = {"base_url": self.galloper_url, "token": self.token,
+                    'galloper_url': self.galloper_url,
+                    "project_id": self.project_id,
+                    "bucket": self.bucket, "build_id": self.build_id,
+                    "report_id": self.report_id,
                     "integrations": self.integration, "exec_params": self.exec_params}
-        response = client.containers.run("getcarrier/performance_results_processing:latest",
-                                         stderr=True, remove=True, detach=True,
-                                         environment=env_vars)
-        return response
+
+        if kubernetes_settings := json.loads(
+                self.integration).get("clouds", {}).get("kubernetes", {}):
+
+            client = KubernetesClient(**{
+                "host": kubernetes_settings["hostname"],
+                "token": kubernetes_settings["k8s_token"],
+                "namespace": kubernetes_settings["namespace"],
+                "jobs_count": 1,
+                "logger": self.logger,
+                "secure_connection": kubernetes_settings["secure_connection"],
+                "mode": self.mode
+            })
+            job = client.run(
+                "getcarrier/performance_results_processing:latest",
+                name="post-processing",
+                environment=env_vars,
+                command="",
+                nano_cpus=kubernetes_settings["post_processor_cpu_cores_limit"] * 1000000000,
+                mem_limit=f"{kubernetes_settings['post_processor_memory_limit']}G",
+            )
+        else:
+            client = DockerClient(self.logger)
+
+            job = client.run("getcarrier/performance_results_processing:latest",
+                             stderr=True, remove=True, detach=True,
+                             environment=env_vars)
+
+        return job

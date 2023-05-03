@@ -21,7 +21,6 @@ from traceback import format_exc
 from typing import List, Optional
 from uuid import uuid4
 
-
 import boto3
 import requests
 from arbiter import Minion
@@ -120,15 +119,16 @@ def post_process(
     )
     centry_logger.info("Start post processing")
     try:
-        cid = PostProcessor(
+        job: Job = PostProcessor(
             galloper_url, project_id, galloper_web_hook, report_id,
             build_id, bucket, prefix, centry_logger, token,
             integration, exec_params
         ).results_post_processing()
-        while cid.status != "exited":
+        last_logs = []
+        while not job.is_finished():
             sleep(10)
             try:
-                cid.reload()
+                job.log_status(last_logs)
             except:
                 break
             global stop_task
@@ -183,7 +183,9 @@ def browsertime(
 
 
 @app.task(name="execute_lambda")
-def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str = 'default', **kwargs) -> str:
+def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str = 'default',
+        **kwargs
+) -> str:
     task["task_result_id"] = f'result_{uuid4()}'
     headers = {
         'Content-Type': 'application/json',
@@ -195,7 +197,8 @@ def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str =
         "task_status": "In progress...",
         "ts": int(mktime(datetime.utcnow().timetuple())),
     }
-    results_url = build_api_url('tasks', 'results', mode=mode, api_version=kwargs.get('api_version', 1))
+    results_url = build_api_url('tasks', 'results', mode=mode,
+                                api_version=kwargs.get('api_version', 1))
     requests.post(
         f'{galloper_url}{results_url}/{task["project_id"]}',
         headers=headers, data=dumps(data)
@@ -209,7 +212,8 @@ def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str =
         }
     )
     try:
-        LambdaExecutor(task, event, galloper_url, token, mode=mode, logger=centry_logger, **kwargs).execute_lambda()
+        LambdaExecutor(task, event, galloper_url, token, mode=mode, logger=centry_logger,
+                       **kwargs).execute_lambda()
         return "Done"
     except Exception as e:
         logger.error(format_exc())
@@ -219,15 +223,23 @@ def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str =
 
 
 @app.task(name="execute_kuber")
-def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings: dict, mode: str = 'default'):
-    centry_logger = get_centry_logger(
-        hostname="interceptor",
-        labels={
-            "build_id": execution_params['build_id'],
+def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings: dict,
+        mode: str = 'default'
+):
+    try:
+        labels = {
             "project": execution_params['project_id'],
             "report_id": execution_params['report_id'],
         }
-    )
+        if execution_params.get('build_id', None):
+            labels["build_id"] = execution_params['build_id']
+        centry_logger = get_centry_logger(
+            hostname="interceptor",
+            labels=labels
+        )
+    except Exception as e:
+        print(e)
+        centry_logger = logger
 
     if not getattr(JobsWrapper, job_type):
         centry_logger.error("Job Type not found")
@@ -306,7 +318,8 @@ def execute_job(job_type, container, execution_params, job_name):
 def main():
     if QUEUE_NAME != "__internal":
         # todo: mode and api_version need to be taken from env?
-        rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration', api_version=1)
+        rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration',
+                                   api_version=1)
         url = f"{c.LOKI_HOST}{rabbit_url}/{VHOST}"
         data = {"name": QUEUE_NAME}
         headers = {'content-type': 'application/json'}
