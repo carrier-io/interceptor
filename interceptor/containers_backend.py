@@ -149,16 +149,8 @@ class DockerClient(Client):
     def info(self):
         return self.docker.info()
 
-    def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
-            auto_remove, user, command=None, mounts=None
-    ):
-        container = self.docker.containers.run(image, name=name, nano_cpus=nano_cpus,
-                                               mem_limit=mem_limit,
-                                               environment=environment,
-                                               tty=tty, detach=detach, remove=remove,
-                                               auto_remove=auto_remove, user=user,
-                                               command=command,
-                                               mounts=mounts)
+    def run(self, image: str, **kwargs):
+        container = self.docker.containers.run(image, **kwargs)
         return DockerJob(cid=container, logger=self.logger)
 
     @property
@@ -203,7 +195,8 @@ class KubernetesClient(Client):
         return ApiClient(configuration)
 
     def get_capacity(self, url: str, bearer_token: str):
-        kuber_url = build_api_url('kubernetes', 'get_available_resources', mode=self.mode, api_version=self.api_version)
+        kuber_url = build_api_url('kubernetes', 'get_available_resources', mode=self.mode,
+                                  api_version=self.api_version)
         url = f"{url}{kuber_url}"
         data = {
             "hostname": self.host,
@@ -260,11 +253,14 @@ class KubernetesClient(Client):
     def info(self):
         pass
 
-    def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
-            auto_remove, user, command=None, mounts=None
+    def run(self, image: str, name, nano_cpus, mem_limit, environment, tty=None,
+            detach=None, remove=None,
+            auto_remove=None, user=None, command="", mounts=None
     ) -> KubernetesJob:
+
         if not self.scaling_cluster:
-            capacity = self.get_capacity(environment["galloper_url"], environment["token"])
+            base_url = environment.get("galloper_url") or environment.get("GALLOPER_URL")
+            capacity = self.get_capacity(base_url, environment["token"])
             if self.jobs_count > capacity["pods"]:
                 raise ValueError("Not enough runners")
             required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
