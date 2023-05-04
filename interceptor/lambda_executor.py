@@ -182,10 +182,10 @@ class LambdaExecutor:
                 self.logger.info(f'Volume path cleared {volume._centry_path}')
                 break
             except APIError:
-                self.logger.info('Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{ATTEMPTS_TO_REMOVE_VOL}')
+                self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{ATTEMPTS_TO_REMOVE_VOL}')
 
         else:
-            self.logger.warning('Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
+            self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
 
         return logs, container_stats
 
