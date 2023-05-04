@@ -1,4 +1,4 @@
-docker==3.6.0
+docker==6.0.1
 PyYAML==6.0
 redis==4.4.2
 python-logging-loki==0.3.1
