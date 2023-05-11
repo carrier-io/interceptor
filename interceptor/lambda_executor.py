@@ -1,15 +1,20 @@
 import json
-import os
 import time
 import re
 import shutil
 from json import dumps, loads
+from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
+from typing import Tuple
 from uuid import uuid4
 
-import docker
+from docker import DockerClient
+from docker.errors import APIError
+from docker.models.volumes import Volume
+from docker.types import Mount
 from requests import get, put
+
 
 from interceptor.constants import NAME_CONTAINER_MAPPING, UNZIP_DOCKER_COMPOSE, \
     UNZIP_DOCKERFILE
@@ -119,74 +124,102 @@ class LambdaExecutor:
         # TODO: grab stats from kubernetes
         return "".join(logs), {}
 
-    def execute_in_docker(self, container_name):
+    def execute_in_docker(self, container_name: str) -> Tuple[str, dict]:
+        ATTEMPTS_TO_REMOVE_VOL = 3
+
         lambda_id = str(uuid4())
-        client = docker.from_env()
+        client = DockerClient.from_env()
 
         self.download_artifact(lambda_id)
-        self.create_volume(client, lambda_id)
-        mounts = [docker.types.Mount(type="volume", source=lambda_id, target="/var/task")]
-        
-        code_path = None if not self.execution_params else self.execution_params.get('code_path')
-        if code_path:
-            mount = docker.types.Mount(type='bind', source=code_path, target='/code')
-            mounts.append(mount)
-        
-        response = client.containers.run(f"getcarrier/{container_name}",
-                                         command=self.command,
-                                         mounts=mounts, stderr=True, remove=True,
-                                         environment=self.env_vars, detach=True)
-
-        logs, stats = [], {}
+        volume = self.create_volume(client, lambda_id)
+        mounts = [Mount(type='volume', source=volume.name, target='/var/task')]
 
         try:
-            self.logger.info(f'container obj {response}')
-            log = response.logs(stream=True, follow=True)
-            stats = response.stats(decode=None, stream=False)
-        except:
-            return "\n\n{logs are not available}", stats
+            code_path = self.execution_params.get('code_path')
+            if code_path:
+                mounts.append(Mount(type='bind', source=code_path, target='/code'))
+        except AttributeError:
+            ...
 
+        container = client.containers.run(
+            f'getcarrier/{container_name}',
+            command=self.command,
+            mounts=mounts,
+            stderr=True,
+            remove=True,
+            environment=self.env_vars,
+            detach=True
+        )
         try:
-            while True:
-                line = next(log).decode("utf-8", errors='ignore')
-                self.logger.info(f'{container_name} - {line}')
-                logs.append(line)
-        except StopIteration:
-            self.logger.info(f'log stream ended for {container_name}')
-            logs = ''.join(logs)
-            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
-            memory = match.group(1) if match else None
-            stats["memory_usage"] = memory
-
-        try:
-            shutil.rmtree(f'/tmp/{lambda_id}', ignore_errors=True)
-            volume = client.volumes.get(lambda_id)
-            volume.remove(force=True)
+            self.logger.info(f'container obj {container}')
+            container_stats = container.stats(decode=False, stream=False)
+            container_logs = container.logs(stream=True, follow=True)
         except Exception as e:
-            self.logger.info(e)
-            self.logger.info("Failed to remove docker volume")
-        return logs, stats
+            self.logger.info(f'logs are not available {e}')
+            return "\n\n{logs are not available}", {}
 
-    def download_artifact(self, lambda_id):
-        os.mkdir(f'/tmp/{lambda_id}')
+        logs = []
+        for i in container_logs:
+            line = i.decode('utf-8', errors='ignore')
+            self.logger.info(f'{container_name} - {line}')
+            logs.append(line)
+
+        self.logger.info(f'Log stream ended for {container_name}')
+
+        logs = ''.join(logs)
+        match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+        try:
+            container_stats['memory_usage'] = match.group(1)
+        except AttributeError:
+            ...
+
+        for _ in range(ATTEMPTS_TO_REMOVE_VOL):
+            sleep(1)
+            try:
+                volume.remove(force=True)
+                self.logger.info(f'Volume removed {volume}')
+                shutil.rmtree(volume._centry_path, ignore_errors=True)
+                self.logger.info(f'Volume path cleared {volume._centry_path}')
+                break
+            except APIError:
+                self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{ATTEMPTS_TO_REMOVE_VOL}')
+
+        else:
+            self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
+
+        return logs, container_stats
+
+    def download_artifact(self, lambda_id: str) -> None:
+        download_path = Path('/', 'tmp', lambda_id)
+        download_path.mkdir()
         headers = {'Authorization': f'bearer {self.token}'}
         r = get(self.artifact_url, allow_redirects=True, headers=headers)
-        with open(f'/tmp/{lambda_id}/{lambda_id}', 'wb') as file_data:
+        with open(download_path.joinpath(lambda_id), 'wb') as file_data:
             file_data.write(r.content)
 
-    def create_volume(self, client, lambda_id):
-        client.volumes.create(lambda_id)
-        with open(f"/tmp/{lambda_id}/Dockerfile", 'w') as f:
-            f.write(
-                UNZIP_DOCKERFILE.format(localfile=lambda_id, docker_path=f'{lambda_id}.zip'))
-        with open(f"/tmp/{lambda_id}/docker-compose.yaml", 'w') as f:
-            f.write(UNZIP_DOCKER_COMPOSE.format(path=f"/tmp/{lambda_id}",
-                                                volume=lambda_id, task_id=lambda_id))
+    @staticmethod
+    def create_volume(client: DockerClient, lambda_id: str) -> Volume:
+        volume = client.volumes.create(lambda_id)
+        # volume_path = f"/tmp/{volume.name}"
+        volume_path = Path('/', 'tmp', volume.name)
+        volume._centry_path = volume_path
+        with open(volume_path.joinpath('Dockerfile'), 'w') as f:
+            f.write(UNZIP_DOCKERFILE.format(
+                localfile=volume.name,
+                docker_path=f'{volume.name}.zip'
+            ))
+        with open(volume_path.joinpath('docker-compose.yaml'), 'w') as f:
+            f.write(UNZIP_DOCKER_COMPOSE.format(
+                path=volume_path,
+                volume=volume.name,
+                task_id=lambda_id
+            ))
         cmd = ['docker-compose', 'up']
         popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
-                      cwd=f"/tmp/{lambda_id}")
+                      cwd=volume_path)
         popen.communicate()
         cmd = ['docker-compose', 'down', '--rmi', 'all']
         popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
-                      cwd=f"/tmp/{lambda_id}")
-        return popen.communicate()
+                      cwd=volume_path)
+        popen.communicate()
+        return volume
