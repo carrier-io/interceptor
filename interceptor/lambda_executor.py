@@ -6,7 +6,7 @@ from json import dumps, loads
 from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
-from typing import Tuple
+from typing import Tuple, Union
 from uuid import uuid4
 
 from docker import DockerClient
@@ -25,10 +25,12 @@ from interceptor.utils import build_api_url
 
 class LambdaExecutor:
 
-    def __init__(self, task: dict, event, galloper_url: str, token: str,
+    def __init__(self, task: dict, event: Union[dict, list], galloper_url: str, token: str,
                  mode: str = 'default', logger=global_logger, **kwargs):
         self.logger = logger
         self.task = task
+        if isinstance(event, list):
+            self.event = event[0]
         self.event = event
         self.galloper_url = galloper_url
         self.token = token
@@ -41,8 +43,8 @@ class LambdaExecutor:
         }
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
-        if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event[0]:
-            self.env_vars.update(self.event[0]["cc_env_vars"])
+        if self.task['task_name'] == "control_tower" and "cc_env_vars" in self.event:
+            self.env_vars.update(self.event["cc_env_vars"])
 
         artifact_url_part = build_api_url('artifacts', 'artifact',
                                           mode=self.mode, api_version=self.api_version)
@@ -52,7 +54,7 @@ class LambdaExecutor:
         
         self.execution_params = None
         if self.event:
-            value = self.event[0].get('execution_params', None)
+            value = self.event.get('execution_params', None)
             self.execution_params = loads(value) if value else value
 
     def execute_lambda(self):
