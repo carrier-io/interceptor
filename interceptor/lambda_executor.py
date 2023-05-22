@@ -31,7 +31,8 @@ class LambdaExecutor:
         self.task = task
         if isinstance(event, list):
             self.event = event[0]
-        self.event = event
+        else:
+            self.event = event
         self.galloper_url = galloper_url
         self.token = token
         self.mode = mode
