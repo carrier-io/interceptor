@@ -16,8 +16,7 @@ from docker.types import Mount
 from requests import get, put
 
 
-from interceptor.constants import NAME_CONTAINER_MAPPING, UNZIP_DOCKER_COMPOSE, \
-    UNZIP_DOCKERFILE
+from interceptor.constants import NAME_CONTAINER_MAPPING
 from interceptor.containers_backend import KubernetesClient
 from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
@@ -204,8 +203,32 @@ class LambdaExecutor:
     def create_volume(client: DockerClient, lambda_id: str) -> Volume:
         volume = client.volumes.create(lambda_id)
         # volume_path = f"/tmp/{volume.name}"
-        volume_path = Path('/', 'tmp', volume.name)
-        volume._centry_path = volume_path
+        # volume_path = Path('/', 'tmp', volume.name)
+        volume._centry_path = Path('/', 'tmp', volume.name)
+        LambdaExecutor.unzip_python(volume)
+        return volume
+
+    @staticmethod
+    def unzip_docker(volume: Volume) -> None:
+        UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest
+        ADD {localfile} /tmp/{docker_path}
+        ENTRYPOINT ["unzip", "/tmp/{docker_path}", "-d", "/tmp/unzipped"]
+        """
+
+        UNZIP_DOCKER_COMPOSE = """version: '3'
+        services:
+          unzip:
+            build: {path}
+            volumes:
+              - {volume}:/tmp/unzipped
+            labels:
+              - 'traefik.enable=false'
+            container_name: unzip-{task_id}
+        volumes:
+          {volume}:
+            external: true
+        """
+        volume_path = volume._centry_path
         with open(volume_path.joinpath('Dockerfile'), 'w') as f:
             f.write(UNZIP_DOCKERFILE.format(
                 localfile=volume.name,
@@ -215,14 +238,27 @@ class LambdaExecutor:
             f.write(UNZIP_DOCKER_COMPOSE.format(
                 path=volume_path,
                 volume=volume.name,
-                task_id=lambda_id
+                task_id=volume.name
             ))
-        cmd = ['docker-compose', 'up']
+        cmd = ['docker', 'compose', 'up']
         popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
                       cwd=volume_path)
         popen.communicate()
-        cmd = ['docker-compose', 'down', '--rmi', 'all']
+        cmd = ['docker', 'compose', 'down', '--rmi', 'all']
         popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
                       cwd=volume_path)
         popen.communicate()
-        return volume
+
+    @staticmethod
+    def unzip_local(volume: Volume) -> None:
+        volume_path = volume._centry_path
+        cmd = ['unzip', volume.name]
+        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
+                      cwd=volume_path)
+        popen.communicate()
+
+    @staticmethod
+    def unzip_python(volume: Volume) -> None:
+        from zipfile import ZipFile
+        with ZipFile(volume._centry_path.joinpath(volume.name), 'r') as zip_ref:
+            zip_ref.extractall(volume._centry_path)
