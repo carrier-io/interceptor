@@ -204,8 +204,6 @@ class LambdaExecutor:
     @staticmethod
     def create_volume(client: DockerClient, lambda_id: str) -> Volume:
         volume = client.volumes.create(lambda_id)
-        # volume_path = f"/tmp/{volume.name}"
-        # volume_path = Path('/', 'tmp', volume.name)
         volume._centry_path = Path('/', 'tmp', volume.name)
         # LambdaExecutor.unzip_python(volume)
         LambdaExecutor.unzip_docker(volume)
@@ -213,23 +211,25 @@ class LambdaExecutor:
 
     @staticmethod
     def unzip_docker(volume: Volume) -> None:
-        UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest
-        ADD {localfile} /tmp/{docker_path}
-        ENTRYPOINT ["unzip", "/tmp/{docker_path}", "-d", "/tmp/unzipped"]
+        UNZIP_DOCKERFILE = """
+FROM kubeless/unzip:latest
+ADD {localfile} /tmp/{docker_path}
+ENTRYPOINT ["unzip", "/tmp/{docker_path}", "-d", "/tmp/unzipped"]
         """
 
-        UNZIP_DOCKER_COMPOSE = """version: '3'
-        services:
-          unzip:
-            build: {path}
-            volumes:
-              - {volume}:/tmp/unzipped
-            labels:
-              - 'traefik.enable=false'
-            container_name: unzip-{task_id}
-        volumes:
-          {volume}:
-            external: true
+        UNZIP_DOCKER_COMPOSE = """
+version: '3'
+services:
+  unzip:
+    build: {path}
+    volumes:
+      - {volume}:/tmp/unzipped
+    labels:
+      - 'traefik.enable=false'
+    container_name: unzip-{task_id}
+volumes:
+  {volume}:
+    external: true
         """
         volume_path = volume._centry_path
         with open(volume_path.joinpath('Dockerfile'), 'w') as f:
