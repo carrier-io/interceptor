@@ -207,7 +207,8 @@ class LambdaExecutor:
         # volume_path = f"/tmp/{volume.name}"
         # volume_path = Path('/', 'tmp', volume.name)
         volume._centry_path = Path('/', 'tmp', volume.name)
-        LambdaExecutor.unzip_python(volume)
+        # LambdaExecutor.unzip_python(volume)
+        LambdaExecutor.unzip_docker(volume)
         return volume
 
     @staticmethod
