@@ -6,6 +6,7 @@ from json import dumps, loads
 from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
+from traceback import format_exc
 from typing import Tuple, Union
 from uuid import uuid4
 
@@ -158,6 +159,7 @@ class LambdaExecutor:
             container_logs = container.logs(stream=True, follow=True)
         except Exception as e:
             self.logger.info(f'logs are not available {e}')
+            self.logger.info(f'exc {format_exc()}')
             return "\n\n{logs are not available}", {}
 
         logs = []
