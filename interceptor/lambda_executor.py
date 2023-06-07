@@ -7,27 +7,33 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
 from traceback import format_exc
-from typing import Tuple, Union
+from typing import Tuple, Union, Iterable
 from uuid import uuid4
 
+import requests
 from docker import DockerClient
 from docker.errors import APIError
 from docker.models.volumes import Volume
 from docker.types import Mount
 from requests import get, put
 
-
 from interceptor.constants import NAME_CONTAINER_MAPPING
 from interceptor.containers_backend import KubernetesClient
-from interceptor.logger import logger as global_logger
+from interceptor.logger import logger as global_logger, SecretFormatter
 from interceptor.utils import build_api_url
 
 
 class LambdaExecutor:
 
     def __init__(self, task: dict, event: Union[dict, list], galloper_url: str, token: str,
-                 mode: str = 'default', logger=global_logger, **kwargs):
-        self.logger = logger
+                 mode: str = 'default', logger=global_logger,
+                 token_type: str = 'bearer', api_version: int = 1,
+                 logger_stop_words: Iterable = tuple(),
+                 **kwargs):
+        self.logger = None
+        self._log_formatter = SecretFormatter(logger_stop_words)
+        self.set_logger(logger)
+
         self.task = task
         if isinstance(event, list):
             self.event = event[0]
@@ -37,10 +43,11 @@ class LambdaExecutor:
         self.token = token
         self.mode = mode
         self.start_time = time.time()
-        self.api_version = kwargs.get('api_version', 1)
+        self.api_version = api_version
         self.api_headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
+            'Authorization': f'{token_type} {self.token}',
+            'X-FROM': 'interceptor'
         }
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
