@@ -3,6 +3,7 @@ import time
 import re
 import shutil
 from json import dumps, loads
+from logging import Logger
 from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
@@ -59,11 +60,33 @@ class LambdaExecutor:
         self.artifact_url = f'{self.galloper_url}{artifact_url_part}/' \
                             f'{self.task["project_id"]}/{self.task["zippath"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
-        
+
         self.execution_params = None
         if self.event:
             value = self.event.get('execution_params', None)
             self.execution_params = loads(value) if value else value
+
+    # def __fetch_secrets(self) -> set:
+    #     secrets_url = build_api_url(
+    #         'secrets', 'interceptor',
+    #         mode=self.mode, api_version=self.api_version,
+    #         trailing_slash=True
+    #     )
+    #     return set()
+
+    def set_logger(self, logger: Logger) -> None:
+        self.logger = logger
+        self._log_formatter.patch_logger(self.logger)
+
+    def get_result_id(self) -> str:
+        results_url = build_api_url(
+            'tasks', 'results',
+            mode=self.mode, api_version=self.api_version, trailing_slash=True
+        )
+        requests.post(
+            f'{self.galloper_url}{results_url}{self.task["project_id"]}',
+            headers=self.api_headers, json={"task_id": self.task['task_id']}
+        )
 
     def execute_lambda(self):
         self.logger.info(f'task {self.task}')
@@ -143,6 +166,7 @@ class LambdaExecutor:
         self.download_artifact(lambda_id)
         volume = self.create_volume(client, lambda_id)
         mounts = [Mount(type='volume', source=volume.name, target='/var/task')]
+        # mounts = [Mount(type='bind', source='tmp/{lambda_id}', target='/var/task')]
 
         try:
             code_path = self.execution_params.get('code_path')
