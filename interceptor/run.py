@@ -31,7 +31,7 @@ from interceptor.logger import logger, get_centry_logger
 from interceptor.post_processor import PostProcessor
 
 from interceptor import constants as c
-from interceptor.utils import build_api_url, create_task_result
+from interceptor.utils import build_api_url
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
