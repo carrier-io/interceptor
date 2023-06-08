@@ -23,7 +23,6 @@ BROWSERTIME_MEMORY_QUOTA = environ.get('BROWSERTIME_MEMORY_QUOTA', '4g')
 LOKI_HOST = environ.get('LOKI_HOST', "")
 LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')
-LOG_SECRETS_REPLACER = environ.get('LOG_SECRETS_REPLACER', '***')
 REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" else False
 
 
