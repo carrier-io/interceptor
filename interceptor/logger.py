@@ -1,7 +1,7 @@
 import logging
 from typing import Iterable
 
-from constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL
+from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL
 
 logger = logging.getLogger("interceptor")
 
