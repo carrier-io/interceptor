@@ -1,7 +1,7 @@
 import logging
 from typing import Iterable
 
-from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL
+from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, LOG_SECRETS_REPLACER
 
 logger = logging.getLogger("interceptor")
 
@@ -41,11 +41,20 @@ def get_centry_logger(hostname: str, labels: dict = None) -> logging.Logger:
 
 
 class SecretFormatter(logging.Formatter):
-    REPLACER = '***'
+    REPLACER = LOG_SECRETS_REPLACER
+    RESTRICTED_STOP_WORDS = {'', REPLACER}
 
     def __init__(self, secrets: Iterable):
         super().__init__()
         self.secrets = set(map(str, secrets))
+        self.__censor_stop_words()
+
+    def __censor_stop_words(self) -> None:
+        for i in self.RESTRICTED_STOP_WORDS:
+            try:
+                self.secrets.remove(i)
+            except KeyError:
+                ...
 
     def format(self, record: logging.LogRecord) -> str:
         formatted = super().format(record)
