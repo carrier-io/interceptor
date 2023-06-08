@@ -45,7 +45,7 @@ class SecretFormatter(logging.Formatter):
 
     def __init__(self, secrets: Iterable):
         super().__init__()
-        self.secrets = set(secrets)
+        self.secrets = set(map(str, secrets))
 
     def format(self, record: logging.LogRecord) -> str:
         formatted = super().format(record)
