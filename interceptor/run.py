@@ -12,13 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 import signal
-from json import dumps
 from os import environ
 from time import sleep, mktime
-from datetime import datetime
 from traceback import format_exc
 from typing import List, Optional
-from uuid import uuid4
 
 import boto3
 import requests
@@ -191,7 +188,8 @@ def execute_lambda(task: dict, **kwargs) -> str:
             'task_id': task['task_id'],
             'project': task['project_id'],
             'task_result_id': task['task_result_id'],
-        }
+        },
+        stop_words=kwargs.get('logger_stop_words', set())
     )
     try:
         LambdaExecutor(

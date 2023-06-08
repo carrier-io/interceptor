@@ -1,7 +1,8 @@
 import logging
-from typing import Iterable
+import re
+from typing import Iterable, Callable
 
-from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, LOG_SECRETS_REPLACER
+from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, LOG_SECRETS_REPLACER, FormatterMethods, FORMATTER_METHOD
 
 logger = logging.getLogger("interceptor")
 
@@ -24,7 +25,7 @@ if LOKI_HOST:
         logger.error("Can't connect to loki")
 
 
-def get_centry_logger(hostname: str, labels: dict = None) -> logging.Logger:
+def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:
     from centry_loki import log_loki
     try:
         context = {
@@ -37,6 +38,9 @@ def get_centry_logger(hostname: str, labels: dict = None) -> logging.Logger:
         centry_logger = logger
         centry_logger.warning("Failed setup logger for test. Used default logger")
 
+    if stop_words:
+        SecretFormatter(secrets=stop_words).patch_logger(centry_logger)
+
     return centry_logger
 
 
@@ -44,10 +48,18 @@ class SecretFormatter(logging.Formatter):
     REPLACER = LOG_SECRETS_REPLACER
     RESTRICTED_STOP_WORDS = {'', REPLACER}
 
-    def __init__(self, secrets: Iterable):
+    def __init__(self, secrets: Iterable, formatter_method: FormatterMethods = FORMATTER_METHOD):
         super().__init__()
+        self.formatter_method = formatter_method
         self.secrets = set(map(str, secrets))
         self.__censor_stop_words()
+
+    @property
+    def formatter(self) -> Callable:
+        try:
+            return getattr(self, self.formatter_method)
+        except AttributeError:
+            return lambda text: text
 
     def __censor_stop_words(self) -> None:
         for i in self.RESTRICTED_STOP_WORDS:
@@ -56,10 +68,22 @@ class SecretFormatter(logging.Formatter):
             except KeyError:
                 ...
 
+    @property
+    def re_pattern(self):
+        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)))
+
+    def replacer_re(self, text: str) -> str:
+        return re.sub(self.re_pattern, '', text, flags=re.MULTILINE)
+
+    def replacer_iter(self, text: str) -> str:
+        # replaces every occurrence
+        for i in self.secrets:
+            text = text.replace(i, self.REPLACER)
+        return text
+
     def format(self, record: logging.LogRecord) -> str:
         formatted = super().format(record)
-        for i in self.secrets:
-            formatted = formatted.replace(i, self.REPLACER)
+        self.formatter(formatted)
         return formatted
 
     def patch_logger(self, logger_: logging.Logger) -> None:

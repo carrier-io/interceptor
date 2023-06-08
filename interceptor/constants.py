@@ -12,6 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 from os import environ
+from enum import StrEnum
+
 
 CPU_MULTIPLIER = 1000000000
 CONTAINER_CPU_QUOTA = int(float(environ.get('CPU_QUOTA', 1)) * CPU_MULTIPLIER)  # nano fraction of single core
@@ -21,7 +23,6 @@ BROWSERTIME_MEMORY_QUOTA = environ.get('BROWSERTIME_MEMORY_QUOTA', '4g')
 LOKI_HOST = environ.get('LOKI_HOST', "")
 LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')
-LOG_SECRETS_REPLACER = environ.get('LOG_SECRETS_REPLACER', '***')
 REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" else False
 
 
@@ -44,3 +45,12 @@ NAME_CONTAINER_MAPPING = {
 
 BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'
 STRIP_HEADERS = ["content-length"]
+
+
+class FormatterMethods(StrEnum):
+    RE = 'replacer_re'
+    ITER = 'replacer_iter'
+
+
+FORMATTER_METHOD = environ.get('FORMATTER_METHOD', FormatterMethods.RE)
+LOG_SECRETS_REPLACER = environ.get('LOG_SECRETS_REPLACER', '***')
