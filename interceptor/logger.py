@@ -70,10 +70,10 @@ class SecretFormatter(logging.Formatter):
 
     @property
     def re_pattern(self):
-        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)))
+        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)), flags=re.MULTILINE)
 
     def replacer_re(self, text: str) -> str:
-        return re.sub(self.re_pattern, '', text, flags=re.MULTILINE)
+        return re.sub(self.re_pattern, '', text)
 
     def replacer_iter(self, text: str) -> str:
         # replaces every occurrence
