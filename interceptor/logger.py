@@ -93,36 +93,3 @@ class SecretFormatter(logging.Formatter):
             if isinstance(handler_.formatter, self.__class__):
                 self.secrets.update(handler_.formatter.secrets)
             handler_.setFormatter(self)
-
-
-# if __name__ == '__main__':
-#     import sys
-#     import os
-#     os.environ['FORMATTER_METHOD'] = FormatterMethods.RE
-#     os.environ['FORMATTER_METHOD'] = 'replacer_iter'
-#
-#     stop_words = ['stop', 'words', ]
-#     stop_words2 = ['secret', '1', 'WARNING']
-#
-#     logger.setLevel(logging.DEBUG)
-#     test_handler = logging.StreamHandler(stream=sys.stdout)
-#     logger.addHandler(test_handler)
-#
-#     secret_formatter = SecretFormatter(stop_words, formatter_method=os.environ['FORMATTER_METHOD'])
-#     secret_formatter.patch_logger(logger)
-#     print(secret_formatter.formatter_method)
-#     print(secret_formatter.formatter)
-#
-#     for i in range(2):
-#         if i == 1:
-#             print('=' * 20)
-#             SecretFormatter(stop_words2).patch_logger(logger)
-#         # logger.info('this is a simple log')
-#         # logger.warning('this is a simple warning')
-#
-#         logger.info('this is a stop word')
-#         logger.warning('this is a secret warning')
-#
-#         logger.info('this is a stop words secret')
-#         logger.warning('this is a stopwordssecret')
-#         # logger.info('this is a 43212341')
