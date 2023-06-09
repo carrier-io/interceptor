@@ -1,8 +1,9 @@
 import logging
 import re
-from typing import Iterable, Callable
+from typing import Iterable, Union
 
-from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, LOG_SECRETS_REPLACER, FormatterMethods, FORMATTER_METHOD
+from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, \
+    LOG_SECRETS_REPLACER, FormatterMethods, FORMATTER_METHOD
 
 logger = logging.getLogger("interceptor")
 
@@ -48,18 +49,18 @@ class SecretFormatter(logging.Formatter):
     REPLACER = LOG_SECRETS_REPLACER
     RESTRICTED_STOP_WORDS = {'', REPLACER}
 
-    def __init__(self, secrets: Iterable, formatter_method: FormatterMethods = FORMATTER_METHOD):
+    def __init__(self, secrets: Iterable, formatter_method: Union[FormatterMethods, str] = FORMATTER_METHOD):
         super().__init__()
         self.formatter_method = formatter_method
         self.secrets = set(map(str, secrets))
         self.__censor_stop_words()
 
-    @property
-    def formatter(self) -> Callable:
         try:
-            return getattr(self, self.formatter_method)
+            self.formatter = getattr(self, self.formatter_method)
         except AttributeError:
-            return lambda text: text
+            logging.warning('Formatter method %s not found. Falling back to %s', self.formatter_method,
+                            FormatterMethods.RE)
+            self.formatter = self.replacer_re
 
     def __censor_stop_words(self) -> None:
         for i in self.RESTRICTED_STOP_WORDS:
@@ -70,54 +71,58 @@ class SecretFormatter(logging.Formatter):
 
     @property
     def re_pattern(self):
-        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)), flags=re.MULTILINE)
+        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)))
 
     def replacer_re(self, text: str) -> str:
-        return re.sub(self.re_pattern, '', text)
+        # replaces only separate words
+        return re.sub(self.re_pattern, self.REPLACER, text)
 
     def replacer_iter(self, text: str) -> str:
         # replaces every occurrence
         for i in self.secrets:
+            print('\t', text, '<->', i)
             text = text.replace(i, self.REPLACER)
         return text
 
     def format(self, record: logging.LogRecord) -> str:
         formatted = super().format(record)
-        self.formatter(formatted)
-        return formatted
+        return self.formatter(formatted)
 
     def patch_logger(self, logger_: logging.Logger) -> None:
         for handler_ in logger_.handlers:
             if isinstance(handler_.formatter, self.__class__):
-                handler_.formatter.secrets.update(self.secrets)
-            else:
-                handler_.setFormatter(self)
+                self.secrets.update(handler_.formatter.secrets)
+            handler_.setFormatter(self)
 
 
 # if __name__ == '__main__':
 #     import sys
+#     import os
+#     os.environ['FORMATTER_METHOD'] = FormatterMethods.RE
+#     os.environ['FORMATTER_METHOD'] = 'replacer_iter'
 #
-#     stop_words2 = ['stop', 'words', ]
-#     stop_words = ['secret', '1', 'WARNING']
+#     stop_words = ['stop', 'words', ]
+#     stop_words2 = ['secret', '1', 'WARNING']
 #
 #     logger.setLevel(logging.DEBUG)
 #     test_handler = logging.StreamHandler(stream=sys.stdout)
-#     # test_handler.setFormatter(SecretFormatter())
 #     logger.addHandler(test_handler)
 #
-#     secret_formatter = SecretFormatter(stop_words)
+#     secret_formatter = SecretFormatter(stop_words, formatter_method=os.environ['FORMATTER_METHOD'])
 #     secret_formatter.patch_logger(logger)
+#     print(secret_formatter.formatter_method)
+#     print(secret_formatter.formatter)
 #
 #     for i in range(2):
 #         if i == 1:
 #             print('=' * 20)
 #             SecretFormatter(stop_words2).patch_logger(logger)
-#         logger.info('this is a simple log')
-#         logger.warning('this is a simple warning')
+#         # logger.info('this is a simple log')
+#         # logger.warning('this is a simple warning')
 #
 #         logger.info('this is a stop word')
 #         logger.warning('this is a secret warning')
 #
 #         logger.info('this is a stop words secret')
 #         logger.warning('this is a stopwordssecret')
-#         logger.info('this is a 43212341')
+#         # logger.info('this is a 43212341')
