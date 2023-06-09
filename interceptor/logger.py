@@ -71,7 +71,7 @@ class SecretFormatter(logging.Formatter):
 
     @property
     def re_pattern(self):
-        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)))
+        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)), flags=re.MULTILINE)
 
     def replacer_re(self, text: str) -> str:
         # replaces only separate words
