@@ -3,31 +3,38 @@ import time
 import re
 import shutil
 from json import dumps, loads
+from logging import Logger
 from pathlib import Path
 from subprocess import Popen, PIPE
 from time import sleep
 from traceback import format_exc
-from typing import Tuple, Union
+from typing import Tuple, Union, Iterable
 from uuid import uuid4
 
+import requests
 from docker import DockerClient
 from docker.errors import APIError
 from docker.models.volumes import Volume
 from docker.types import Mount
 from requests import get, put
 
-
 from interceptor.constants import NAME_CONTAINER_MAPPING
 from interceptor.containers_backend import KubernetesClient
-from interceptor.logger import logger as global_logger
+from interceptor.logger import logger as global_logger, SecretFormatter
 from interceptor.utils import build_api_url
 
 
 class LambdaExecutor:
 
     def __init__(self, task: dict, event: Union[dict, list], galloper_url: str, token: str,
-                 mode: str = 'default', logger=global_logger, **kwargs):
-        self.logger = logger
+                 mode: str = 'default', logger=global_logger,
+                 token_type: str = 'bearer', api_version: int = 1,
+                 logger_stop_words: Iterable = tuple(),
+                 **kwargs):
+        self.logger = None
+        self._log_formatter = SecretFormatter(logger_stop_words)
+        self.set_logger(logger)
+
         self.task = task
         if isinstance(event, list):
             self.event = event[0]
@@ -37,10 +44,11 @@ class LambdaExecutor:
         self.token = token
         self.mode = mode
         self.start_time = time.time()
-        self.api_version = kwargs.get('api_version', 1)
+        self.api_version = api_version
         self.api_headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
+            'Authorization': f'{token_type} {self.token}',
+            'X-FROM': 'interceptor'
         }
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
@@ -52,11 +60,33 @@ class LambdaExecutor:
         self.artifact_url = f'{self.galloper_url}{artifact_url_part}/' \
                             f'{self.task["project_id"]}/{self.task["zippath"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
-        
+
         self.execution_params = None
         if self.event:
             value = self.event.get('execution_params', None)
             self.execution_params = loads(value) if value else value
+
+    # def __fetch_secrets(self) -> set:
+    #     secrets_url = build_api_url(
+    #         'secrets', 'interceptor',
+    #         mode=self.mode, api_version=self.api_version,
+    #         trailing_slash=True
+    #     )
+    #     return set()
+
+    def set_logger(self, logger: Logger) -> None:
+        self.logger = logger
+        self._log_formatter.patch_logger(self.logger)
+
+    def get_result_id(self) -> str:
+        results_url = build_api_url(
+            'tasks', 'results',
+            mode=self.mode, api_version=self.api_version, trailing_slash=True
+        )
+        requests.post(
+            f'{self.galloper_url}{results_url}{self.task["project_id"]}',
+            headers=self.api_headers, json={"task_id": self.task['task_id']}
+        )
 
     def execute_lambda(self):
         self.logger.info(f'task {self.task}')
@@ -136,6 +166,7 @@ class LambdaExecutor:
         self.download_artifact(lambda_id)
         volume = self.create_volume(client, lambda_id)
         mounts = [Mount(type='volume', source=volume.name, target='/var/task')]
+        # mounts = [Mount(type='bind', source='tmp/{lambda_id}', target='/var/task')]
 
         try:
             code_path = self.execution_params.get('code_path')

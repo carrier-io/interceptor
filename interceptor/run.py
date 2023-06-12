@@ -12,13 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 import signal
-from json import dumps
 from os import environ
 from time import sleep, mktime
-from datetime import datetime
 from traceback import format_exc
 from typing import List, Optional
-from uuid import uuid4
 
 import boto3
 import requests
@@ -184,37 +181,20 @@ def browsertime(
 
 
 @app.task(name="execute_lambda")
-def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str = 'default',
-        **kwargs
-) -> str:
-    task["task_result_id"] = f'result_{uuid4()}'
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'{kwargs.get("token_type", "bearer")} {token}'
-    }
-    data = {
-        "task_result_id": task["task_result_id"],
-        "task_id": task['task_id'],
-        "task_status": "In progress...",
-        "ts": int(mktime(datetime.utcnow().timetuple())),
-    }
-    results_url = build_api_url('tasks', 'results', mode=mode,
-                                api_version=kwargs.get('api_version', 1))
-    requests.post(
-        f'{galloper_url}{results_url}/{task["project_id"]}',
-        headers=headers, data=dumps(data)
-    )
+def execute_lambda(task: dict, **kwargs) -> str:
     centry_logger = get_centry_logger(
         hostname=task.get('task_name'),
         labels={
-            "task_id": task['task_id'],
-            "project": task['project_id'],
-            "task_result_id": task["task_result_id"],
-        }
+            'task_id': task['task_id'],
+            'project': task['project_id'],
+            'task_result_id': task['task_result_id'],
+        },
+        stop_words=kwargs.get('logger_stop_words', set())
     )
     try:
-        LambdaExecutor(task, event, galloper_url, token, mode=mode, logger=centry_logger,
-                       **kwargs).execute_lambda()
+        LambdaExecutor(
+            task, logger=centry_logger, **kwargs
+        ).execute_lambda()
         return "Done"
     except Exception as e:
         logger.error(format_exc())
@@ -225,8 +205,8 @@ def execute_lambda(task: dict, event, galloper_url: str, token: str, mode: str =
 
 @app.task(name="execute_kuber")
 def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings: dict,
-        mode: str = 'default'
-):
+                  mode: str = 'default'
+                  ):
     try:
         labels = {
             "project": execution_params['project_id'],
@@ -318,7 +298,6 @@ def execute_job(job_type, container, execution_params, job_name):
 
 def main():
     if QUEUE_NAME != "__internal":
-        # todo: mode and api_version need to be taken from env?
         rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration',
                                    api_version=1)
         url = f"{c.LOKI_HOST}{rabbit_url}/{VHOST}"
