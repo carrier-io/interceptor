@@ -12,7 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 from os import environ
-from enum import StrEnum
 
 
 CPU_MULTIPLIER = 1000000000
@@ -45,4 +44,3 @@ NAME_CONTAINER_MAPPING = {
 
 BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'
 STRIP_HEADERS = ["content-length"]
-
