@@ -46,11 +46,3 @@ NAME_CONTAINER_MAPPING = {
 BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'
 STRIP_HEADERS = ["content-length"]
 
-
-class FormatterMethods(StrEnum):
-    RE = 'replacer_re'
-    ITER = 'replacer_iter'
-
-
-FORMATTER_METHOD = environ.get('FORMATTER_METHOD', FormatterMethods.RE)
-LOG_SECRETS_REPLACER = environ.get('LOG_SECRETS_REPLACER', '***')
