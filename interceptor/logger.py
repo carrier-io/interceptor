@@ -1,9 +1,7 @@
 import logging
-import re
-from typing import Iterable, Union
+from typing import Iterable
 
-from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL, \
-    LOG_SECRETS_REPLACER, FormatterMethods, FORMATTER_METHOD
+from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL
 
 logger = logging.getLogger("interceptor")
 
@@ -34,62 +32,14 @@ def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable =
                    f"{LOKI_PORT}/loki/api/v1/push",
             "hostname": hostname, "labels": labels
         }
-        centry_logger = log_loki.get_logger(context)
+        centry_logger = log_loki.get_logger(context, secrets=stop_words)
     except KeyError:
         centry_logger = logger
         centry_logger.warning("Failed setup logger for test. Used default logger")
-
-    if stop_words:
-        SecretFormatter(secrets=stop_words).patch_logger(centry_logger)
-
-    return centry_logger
-
-
-class SecretFormatter(logging.Formatter):
-    REPLACER = LOG_SECRETS_REPLACER
-    RESTRICTED_STOP_WORDS = {'', REPLACER}
-
-    def __init__(self, secrets: Iterable, formatter_method: Union[FormatterMethods, str] = FORMATTER_METHOD):
-        super().__init__()
-        self.formatter_method = formatter_method
-        self.secrets = set(map(str, secrets))
-        self.__censor_stop_words()
-
-        try:
-            self.formatter = getattr(self, self.formatter_method)
-        except AttributeError:
-            logging.warning('Formatter method %s not found. Falling back to %s', self.formatter_method,
-                            FormatterMethods.RE)
-            self.formatter = self.replacer_re
-
-    def __censor_stop_words(self) -> None:
-        for i in self.RESTRICTED_STOP_WORDS:
+        if stop_words:
             try:
-                self.secrets.remove(i)
-            except KeyError:
+                from centry_loki.formatters import SecretFormatter
+                SecretFormatter(secrets=stop_words).patch_logger(centry_logger)
+            except ImportError:
                 ...
-
-    @property
-    def re_pattern(self):
-        return re.compile(r'\b(?:{})\b'.format('|'.join(self.secrets)))
-
-    def replacer_re(self, text: str) -> str:
-        # replaces only separate words
-        return re.sub(self.re_pattern, self.REPLACER, text)
-
-    def replacer_iter(self, text: str) -> str:
-        # replaces every occurrence
-        for i in self.secrets:
-            print('\t', text, '<->', i)
-            text = text.replace(i, self.REPLACER)
-        return text
-
-    def format(self, record: logging.LogRecord) -> str:
-        formatted = super().format(record)
-        return self.formatter(formatted)
-
-    def patch_logger(self, logger_: logging.Logger) -> None:
-        for handler_ in logger_.handlers:
-            if isinstance(handler_.formatter, self.__class__):
-                self.secrets.update(handler_.formatter.secrets)
-            handler_.setFormatter(self)
+    return centry_logger

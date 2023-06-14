@@ -20,7 +20,7 @@ from requests import get, put
 
 from interceptor.constants import NAME_CONTAINER_MAPPING
 from interceptor.containers_backend import KubernetesClient
-from interceptor.logger import logger as global_logger, SecretFormatter
+from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
 
 
@@ -29,11 +29,8 @@ class LambdaExecutor:
     def __init__(self, task: dict, event: Union[dict, list], galloper_url: str, token: str,
                  mode: str = 'default', logger=global_logger,
                  token_type: str = 'bearer', api_version: int = 1,
-                 logger_stop_words: Iterable = tuple(),
                  **kwargs):
-        self.logger = None
-        self._log_formatter = SecretFormatter(logger_stop_words)
-        self.set_logger(logger)
+        self.logger = logger
 
         self.task = task
         if isinstance(event, list):
@@ -48,7 +45,7 @@ class LambdaExecutor:
         self.api_headers = {
             'Content-Type': 'application/json',
             'Authorization': f'{token_type} {self.token}',
-            'X-FROM': 'interceptor'
+            'X-From': 'interceptor'
         }
 
         self.env_vars = loads(self.task.get("env_vars", "{}"))
@@ -68,18 +65,6 @@ class LambdaExecutor:
         if self.event:
             value = self.event.get('execution_params', None)
             self.execution_params = loads(value) if value else value
-
-    # def __fetch_secrets(self) -> set:
-    #     secrets_url = build_api_url(
-    #         'secrets', 'interceptor',
-    #         mode=self.mode, api_version=self.api_version,
-    #         trailing_slash=True
-    #     )
-    #     return set()
-
-    def set_logger(self, logger: Logger) -> None:
-        self.logger = logger
-        self._log_formatter.patch_logger(self.logger)
 
     def get_result_id(self) -> str:
         results_url = build_api_url(

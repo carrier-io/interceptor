@@ -18,7 +18,7 @@ RUN pip install requests
 RUN python setup.py install
 RUN rm -rf interceptor requirements.txt setup.py
 RUN pip install git+https://github.com/carrier-io/arbiter.git
-RUN pip install git+https://github.com/carrier-io/loki_logger.git
+RUN pip install git+https://github.com/Aspect13/loki_logger.git@feature/formatter
 
 SHELL ["/bin/bash", "-c"]
 
