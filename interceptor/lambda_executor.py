@@ -57,8 +57,11 @@ class LambdaExecutor:
 
         artifact_url_part = build_api_url('artifacts', 'artifact',
                                           mode=self.mode, api_version=self.api_version)
+        zippath = self.task["zippath"]
         self.artifact_url = f'{self.galloper_url}{artifact_url_part}/' \
-                            f'{self.task["project_id"]}/{self.task["zippath"]}'
+                            f'{self.task["project_id"]}/{zippath["bucket_name"]}/' \
+                            f'{zippath["file_name"]}?integration_id={zippath["integration_id"]}&' \
+                            f'is_local={zippath["is_local"]}'
         self.command = [f"{self.task['task_handler']}", dumps(self.event)]
 
         self.execution_params = None
