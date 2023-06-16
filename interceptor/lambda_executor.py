@@ -98,8 +98,11 @@ class LambdaExecutor:
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
             raise Exception(f"Container {self.task['runtime']} is not found")
+
+        integrations = self.event.get("integration") or self.event.get("integrations")
+
         try:
-            cloud_settings = self.event["integration"]["clouds"]["kubernetes"]
+            cloud_settings = integrations["clouds"]["kubernetes"]
         except (TypeError, KeyError):
             log, stats = self.execute_in_docker(container_name)
         else:
