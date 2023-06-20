@@ -15,7 +15,7 @@ import signal
 from os import environ
 from time import sleep, mktime
 from traceback import format_exc
-from typing import List, Optional
+from typing import List, Optional, Union, Iterable
 
 import boto3
 import requests
@@ -105,7 +105,10 @@ def post_process(
         galloper_url: str, project_id: int, galloper_web_hook,
         report_id, bucket, prefix,
         build_id: str, token: Optional[str] = None,
-        integration: Optional[list] = None, exec_params: Optional[dict] = None
+        integration: Optional[list] = None,
+        exec_params: Optional[dict] = None,
+        logger_stop_words: Iterable = tuple(),
+        **kwargs
 ):
     centry_logger = get_centry_logger(
         hostname="interceptor",
@@ -113,7 +116,8 @@ def post_process(
             "build_id": build_id,
             "project": project_id,
             "report_id": report_id,
-        }
+        },
+        stop_words=logger_stop_words
     )
     centry_logger.info("Start post processing")
     try:
@@ -181,7 +185,9 @@ def browsertime(
 
 
 @app.task(name="execute_lambda")
-def execute_lambda(task: dict, **kwargs) -> str:
+def execute_lambda(task: dict, event: Union[dict, list],
+                   logger_stop_words: Iterable = tuple(),
+                   **kwargs) -> str:
     centry_logger = get_centry_logger(
         hostname=task.get('task_name'),
         labels={
@@ -189,11 +195,12 @@ def execute_lambda(task: dict, **kwargs) -> str:
             'project': task['project_id'],
             'task_result_id': task['task_result_id'],
         },
-        stop_words=kwargs.get('logger_stop_words', set())
+        stop_words=logger_stop_words
     )
     try:
         LambdaExecutor(
-            task, logger=centry_logger, **kwargs
+            task=task, event=event, logger=centry_logger,
+            **kwargs
         ).execute_lambda()
         return "Done"
     except Exception as e:
@@ -205,7 +212,8 @@ def execute_lambda(task: dict, **kwargs) -> str:
 
 @app.task(name="execute_kuber")
 def execute_kuber(job_type, container, execution_params, job_name, kubernetes_settings: dict,
-                  mode: str = 'default'
+                  mode: str = 'default', logger_stop_words: Iterable = tuple(),
+                  **kwargs
                   ):
     try:
         labels = {
@@ -216,7 +224,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
             labels["build_id"] = execution_params['build_id']
         centry_logger = get_centry_logger(
             hostname="interceptor",
-            labels=labels
+            labels=labels,
+            stop_words=logger_stop_words
         )
     except Exception as e:
         print(e)
@@ -251,7 +260,9 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
 
 
 @app.task(name="execute")
-def execute_job(job_type, container, execution_params, job_name):
+def execute_job(job_type, container, execution_params, job_name,
+                logger_stop_words: Iterable = tuple(),
+                **kwargs):
     try:
         labels = {
             "project": execution_params['project_id'],
@@ -261,7 +272,8 @@ def execute_job(job_type, container, execution_params, job_name):
             labels["build_id"] = execution_params['build_id']
         centry_logger = get_centry_logger(
             hostname="interceptor",
-            labels=labels
+            labels=labels,
+            stop_words=logger_stop_words
         )
     except Exception as e:
         print(e)
