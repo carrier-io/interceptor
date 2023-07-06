@@ -1,11 +1,11 @@
 urllib3==1.26.15
 docker==3.6.0
 PyYAML==6.0
-redis==4.4.2
+redis==4.6.0
 python-logging-loki==0.3.1
-boto3==1.26.54
+boto3==1.27.0
 requests-mock==1.10.0
 mock==5.0.1
-kubernetes==25.3.0
-google-cloud-compute==1.9.0
-google-auth==2.20.0
+kubernetes==26.1.0
+google-cloud-compute==1.11.0
+google-auth==2.21.0
