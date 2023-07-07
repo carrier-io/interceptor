@@ -9,6 +9,7 @@ from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
+from interceptor import constants as c
 
 
 class PostProcessor:
@@ -103,14 +104,19 @@ class PostProcessor:
                 name="post-processing",
                 environment=env_vars,
                 command="",
-                nano_cpus=kubernetes_settings["post_processor_cpu_cores_limit"] * 1000000000,
+                nano_cpus=kubernetes_settings["post_processor_cpu_cores_limit"] * c.CPU_MULTIPLIER,
                 mem_limit=f"{kubernetes_settings['post_processor_memory_limit']}G",
             )
         else:
+            exec_params = json.loads(self.exec_params)
+            nano_cpus = int(float(exec_params["cpu_quota"]) * c.CPU_MULTIPLIER) if exec_params.get(
+                "cpu_quota") else c.CONTAINER_CPU_QUOTA
+            mem_limit = f'{exec_params["memory_quota"]}g' if exec_params.get(
+                "memory_quota") else c.CONTAINER_MEMORY_QUOTA
             client = DockerClient(self.logger)
 
             job = client.run("getcarrier/performance_results_processing:latest",
                              stderr=True, remove=True, detach=True,
-                             environment=env_vars)
+                             environment=env_vars, nano_cpus=nano_cpus, mem_limit=mem_limit)
 
         return job
