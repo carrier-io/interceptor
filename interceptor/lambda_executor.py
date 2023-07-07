@@ -178,16 +178,34 @@ class LambdaExecutor:
             detach=True
         )
 
-        self.logger.info(f'container obj {container}')
-        try:
-            container_stats = container.stats(decode=False, stream=False)
-        except Exception as e:
-            container_stats = {}
-            self.logger.warning(f'Container stats are not available {e}')
-            self.logger.warning(f'exc: {format_exc()}')
+        self.logger.info(f'Сontainer obj: {container}')
+        attempt = 0
+        max_retries = 3
 
-        try:
-            container_logs = container.logs(stream=True, follow=True)
+        container_stats = {}
+        while attempt < max_retries:
+            try:
+                container_stats = container.stats(decode=False, stream=False)
+            except Exception as e:
+                attempt += 1
+                self.logger.warning(f'Container stats are not available {e}')
+                self.logger.warning(f'exc: {format_exc()}')
+                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
+                sleep(3)
+
+        attempt = 0
+        container_logs = None
+        while attempt < max_retries:
+            try:
+                container_logs = container.logs(stream=True, follow=True)
+            except Exception as e:
+                self.logger.warning(f'Container logs are not available {e}')
+                self.logger.warning(f'exc: {format_exc()}')
+                attempt += 1
+                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
+                sleep(3)
+
+        if container_logs:
             logs = []
             for i in container_logs:
                 line = i.decode('utf-8', errors='ignore')
@@ -200,9 +218,7 @@ class LambdaExecutor:
                 container_stats['memory_usage'] = match.group(1)
             except AttributeError:
                 ...
-        except Exception as e:
-            self.logger.warning(f'Container logs are not available {e}')
-            self.logger.warning(f'exc: {format_exc()}')
+        else:
             logs = "\n\n{logs are not available}"
 
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
