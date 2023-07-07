@@ -177,33 +177,35 @@ class LambdaExecutor:
             environment=self.env_vars,
             detach=True
         )
+
+        self.logger.info(f'container obj {container}')
         try:
-            self.logger.info(f'container obj {container}')
             container_stats = container.stats(decode=False, stream=False)
-            container_logs = container.logs(stream=True, follow=True)
         except Exception as e:
-            self.logger.info(f'logs are not available {e}')
-            self.logger.info(f'exc {format_exc()}')
-            self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
-            return "\n\n{logs are not available}", {}
+            container_stats = {}
+            self.logger.warning(f'Container stats are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
 
-        logs = []
-        for i in container_logs:
-            line = i.decode('utf-8', errors='ignore')
-            self.logger.info(f'{container_name} - {line}')
-            logs.append(line)
-
-        self.logger.info(f'Log stream ended for {container_name}')
-
-        logs = ''.join(logs)
-        match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
         try:
-            container_stats['memory_usage'] = match.group(1)
-        except AttributeError:
-            ...
+            container_logs = container.logs(stream=True, follow=True)
+            logs = []
+            for i in container_logs:
+                line = i.decode('utf-8', errors='ignore')
+                self.logger.info(f'{container_name} - {line}')
+                logs.append(line)
+            self.logger.info(f'Log stream ended for {container_name}')
+            logs = ''.join(logs)
+            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+            try:
+                container_stats['memory_usage'] = match.group(1)
+            except AttributeError:
+                ...
+        except Exception as e:
+            self.logger.warning(f'Container logs are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
+            logs = "\n\n{logs are not available}"
 
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
-
         return logs, container_stats
 
     def download_artifact(self, lambda_id: str) -> None:
