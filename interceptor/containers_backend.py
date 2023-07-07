@@ -283,7 +283,7 @@ class KubernetesClient(Client):
             image="busybox:latest",
             command=["/bin/sh", "-c"],
             args=[
-                f"wget \"{artifact_url}\" "
+                f"wget '{artifact_url}' "
                 f"--header='Authorization: bearer {auth_token}' -O tmp/task.zip"],
             resources=client.V1ResourceRequirements(
                 limits={"cpu": "250m", "memory": "250Mi"},
