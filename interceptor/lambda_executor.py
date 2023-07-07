@@ -85,7 +85,7 @@ class LambdaExecutor:
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
-            results = log.strip().split('\n\n')
+            results = log.strip().split('\n\n')[-1]
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
@@ -204,6 +204,7 @@ class LambdaExecutor:
             logs = "\n\n{logs are not available}"
         self.logger.info(f'Container stats: {container_stats}')
         self.logger.info(f'Container logs: {logs}')
+        self.logger.info('Container logs: %s', logs.strip().split("\n\n"))
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
         return logs, container_stats
 
