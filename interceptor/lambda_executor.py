@@ -170,8 +170,6 @@ class LambdaExecutor:
         except Exception as e:
             self.logger.info(f'logs are not available {e}')
             self.logger.info(f'exc {format_exc()}')
-            return "\n\n{logs are not available}", {}
-
         else:
             logs = []
             for i in container_logs:
@@ -187,6 +185,7 @@ class LambdaExecutor:
                 container_stats['memory_usage'] = match.group(1)
             except AttributeError:
                 ...
+            return logs, container_stats
         finally:
             for _ in range(ATTEMPTS_TO_REMOVE_VOL):
                 sleep(1)
@@ -201,8 +200,7 @@ class LambdaExecutor:
 
             else:
                 self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
-
-        return logs, container_stats
+            return "\n\n{logs are not available}", {}
 
     def download_artifact(self, lambda_id: str) -> None:
         download_path = Path('/', 'tmp', lambda_id)
