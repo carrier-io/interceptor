@@ -171,7 +171,6 @@ class LambdaExecutor:
             self.logger.info(f'logs are not available {e}')
             self.logger.info(f'exc {format_exc()}')
         else:
-            sleep(5)
             logs = []
             for i in container_logs:
                 line = i.decode('utf-8', errors='ignore')
