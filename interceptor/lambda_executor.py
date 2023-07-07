@@ -136,6 +136,21 @@ class LambdaExecutor:
         # TODO: grab stats from kubernetes
         return "".join(logs), {}
 
+    def remove_volume(self, volume, attempts: int = 3) -> None:
+        for _ in range(attempts):
+            sleep(1)
+            try:
+                volume.remove(force=True)
+                self.logger.info(f'Volume removed {volume}')
+                shutil.rmtree(volume._centry_path, ignore_errors=True)
+                self.logger.info(f'Volume path cleared {volume._centry_path}')
+                break
+            except APIError:
+                self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{attempts}')
+
+        else:
+            self.logger.warning(f'Failed to remove docker volume after {attempts} attempts')
+
     def execute_in_docker(self, container_name: str) -> Tuple[str, dict]:
         ATTEMPTS_TO_REMOVE_VOL = 3
 
@@ -166,42 +181,30 @@ class LambdaExecutor:
             self.logger.info(f'container obj {container}')
             container_stats = container.stats(decode=False, stream=False)
             container_logs = container.logs(stream=True, follow=True)
-
         except Exception as e:
             self.logger.info(f'logs are not available {e}')
             self.logger.info(f'exc {format_exc()}')
-        else:
-            sleep(5)
-            logs = []
-            for i in container_logs:
-                line = i.decode('utf-8', errors='ignore')
-                self.logger.info(f'{container_name} - {line}')
-                logs.append(line)
+            self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
+            return "\n\n{logs are not available}", {}
 
-            self.logger.info(f'Log stream ended for {container_name}')
+        logs = []
+        for i in container_logs:
+            line = i.decode('utf-8', errors='ignore')
+            self.logger.info(f'{container_name} - {line}')
+            logs.append(line)
 
-            logs = ''.join(logs)
-            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
-            try:
-                container_stats['memory_usage'] = match.group(1)
-            except AttributeError:
-                ...
-            return logs, container_stats
-        finally:
-            for _ in range(ATTEMPTS_TO_REMOVE_VOL):
-                sleep(1)
-                try:
-                    volume.remove(force=True)
-                    self.logger.info(f'Volume removed {volume}')
-                    shutil.rmtree(volume._centry_path, ignore_errors=True)
-                    self.logger.info(f'Volume path cleared {volume._centry_path}')
-                    break
-                except APIError:
-                    self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{ATTEMPTS_TO_REMOVE_VOL}')
+        self.logger.info(f'Log stream ended for {container_name}')
 
-            else:
-                self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
-        return "\n\n{logs are not available}", {}
+        logs = ''.join(logs)
+        match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+        try:
+            container_stats['memory_usage'] = match.group(1)
+        except AttributeError:
+            ...
+
+        self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
+
+        return logs, container_stats
 
     def download_artifact(self, lambda_id: str) -> None:
         download_path = Path('/', 'tmp', lambda_id)
