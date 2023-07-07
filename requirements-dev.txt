@@ -1,1 +1,1 @@
-git+https://github.com/carrier-io/arbiter.git@beta-1.0
+git+https://github.com/carrier-io/arbiter.git@v.2.5

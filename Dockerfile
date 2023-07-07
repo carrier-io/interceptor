@@ -14,11 +14,11 @@ ADD start.sh /tmp/start.sh
 RUN chmod +x /tmp/start.sh
 
 WORKDIR /tmp
-RUN pip install requests==2.31.0
+RUN pip install requests
 RUN python setup.py install
 RUN rm -rf interceptor requirements.txt setup.py
-RUN pip install git+https://github.com/carrier-io/arbiter.git@beta-1.0
-RUN pip install git+https://github.com/carrier-io/loki_logger.git@beta-1.0
+RUN pip install git+https://github.com/carrier-io/arbiter.git
+RUN pip install git+https://github.com/carrier-io/loki_logger.git
 
 SHELL ["/bin/bash", "-c"]
 
