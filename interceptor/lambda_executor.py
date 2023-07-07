@@ -168,6 +168,8 @@ class LambdaExecutor:
         except AttributeError:
             ...
 
+        container_stats = {}
+        container_logs = None
         container = client.containers.run(
             f'getcarrier/{container_name}',
             command=self.command,
@@ -177,23 +179,13 @@ class LambdaExecutor:
             environment=self.env_vars,
             detach=True
         )
-
-        self.logger.info(f'Сontainer obj: {container}')
-        attempt = 0
-        max_retries = 3
-
-        container_stats = {}
-        container_logs = None
-        while attempt < max_retries:
-            try:
-                container_stats = container.stats(decode=False, stream=False)
-                container_logs = container.logs(stream=True, follow=True)
-            except Exception as e:
-                attempt += 1
-                self.logger.warning(f'Container stats are not available {e}')
-                self.logger.warning(f'exc: {format_exc()}')
-                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
-                sleep(3)
+        self.logger.info(f'Container obj: {container}')
+        try:
+            container_stats = container.stats(decode=False, stream=False)
+            container_logs = container.logs(stream=True, follow=True)
+        except Exception as e:
+            self.logger.warning(f'Container stats are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
 
         if container_logs:
             logs = []
