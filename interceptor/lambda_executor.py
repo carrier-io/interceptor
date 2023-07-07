@@ -200,7 +200,7 @@ class LambdaExecutor:
 
             else:
                 self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
-            return "\n\n{logs are not available}", {}
+        return "\n\n{logs are not available}", {}
 
     def download_artifact(self, lambda_id: str) -> None:
         download_path = Path('/', 'tmp', lambda_id)
