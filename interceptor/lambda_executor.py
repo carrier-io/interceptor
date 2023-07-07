@@ -186,7 +186,6 @@ class LambdaExecutor:
         except Exception as e:
             self.logger.warning(f'Container stats are not available {e}')
             self.logger.warning(f'exc: {format_exc()}')
-
         if container_logs:
             logs = []
             for i in container_logs:
