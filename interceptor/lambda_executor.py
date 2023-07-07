@@ -85,7 +85,7 @@ class LambdaExecutor:
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
-            results = log.split("\n\n")[1]
+            results = log.strip().split('\n\n')[-1]
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
@@ -168,6 +168,8 @@ class LambdaExecutor:
         except AttributeError:
             ...
 
+        container_stats = {}
+        container_logs = None
         container = client.containers.run(
             f'getcarrier/{container_name}',
             command=self.command,
@@ -177,34 +179,13 @@ class LambdaExecutor:
             environment=self.env_vars,
             detach=True
         )
-
-        self.logger.info(f'Сontainer obj: {container}')
-        attempt = 0
-        max_retries = 3
-
-        container_stats = {}
-        while attempt < max_retries:
-            try:
-                container_stats = container.stats(decode=False, stream=False)
-            except Exception as e:
-                attempt += 1
-                self.logger.warning(f'Container stats are not available {e}')
-                self.logger.warning(f'exc: {format_exc()}')
-                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
-                sleep(3)
-
-        attempt = 0
-        container_logs = None
-        while attempt < max_retries:
-            try:
-                container_logs = container.logs(stream=True, follow=True)
-            except Exception as e:
-                self.logger.warning(f'Container logs are not available {e}')
-                self.logger.warning(f'exc: {format_exc()}')
-                attempt += 1
-                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
-                sleep(3)
-
+        self.logger.info(f'Container obj: {container}')
+        try:
+            container_stats = container.stats(decode=False, stream=False)
+            container_logs = container.logs(stream=True, follow=True)
+        except Exception as e:
+            self.logger.warning(f'Container stats are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
         if container_logs:
             logs = []
             for i in container_logs:
@@ -220,7 +201,8 @@ class LambdaExecutor:
                 ...
         else:
             logs = "\n\n{logs are not available}"
-
+        self.logger.info(f'Container stats: {container_stats}')
+        self.logger.info(f'Container logs: {logs}')
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
         return logs, container_stats
 
