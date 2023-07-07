@@ -202,7 +202,8 @@ class LambdaExecutor:
                 ...
         else:
             logs = "\n\n{logs are not available}"
-
+        self.logger.info(f'Container stats: {container_stats}')
+        self.logger.info(f'Container logs: {logs}')
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
         return logs, container_stats
 
