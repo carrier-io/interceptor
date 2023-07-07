@@ -183,25 +183,15 @@ class LambdaExecutor:
         max_retries = 3
 
         container_stats = {}
+        container_logs = None
         while attempt < max_retries:
             try:
                 container_stats = container.stats(decode=False, stream=False)
+                container_logs = container.logs(stream=True, follow=True)
             except Exception as e:
                 attempt += 1
                 self.logger.warning(f'Container stats are not available {e}')
                 self.logger.warning(f'exc: {format_exc()}')
-                self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
-                sleep(3)
-
-        attempt = 0
-        container_logs = None
-        while attempt < max_retries:
-            try:
-                container_logs = container.logs(stream=True, follow=True)
-            except Exception as e:
-                self.logger.warning(f'Container logs are not available {e}')
-                self.logger.warning(f'exc: {format_exc()}')
-                attempt += 1
                 self.logger.info(f'Attempt {attempt}/{max_retries}. Sleeping 3sec')
                 sleep(3)
 
