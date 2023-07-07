@@ -85,7 +85,7 @@ class LambdaExecutor:
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
-            results = log.lstrip()
+            results = log.strip().split('\n\n')
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
