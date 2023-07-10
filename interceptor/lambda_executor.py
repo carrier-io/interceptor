@@ -85,7 +85,7 @@ class LambdaExecutor:
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
-            results = log.split("\n\n")[1]
+            results = log.strip().split('\n\n')[-1]
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
@@ -168,6 +168,8 @@ class LambdaExecutor:
         except AttributeError:
             ...
 
+        container_stats = {}
+        container_logs = None
         container = client.containers.run(
             f'getcarrier/{container_name}',
             command=self.command,
@@ -177,33 +179,31 @@ class LambdaExecutor:
             environment=self.env_vars,
             detach=True
         )
+        self.logger.info(f'Container obj: {container}')
         try:
-            self.logger.info(f'container obj {container}')
             container_stats = container.stats(decode=False, stream=False)
             container_logs = container.logs(stream=True, follow=True)
         except Exception as e:
-            self.logger.info(f'logs are not available {e}')
-            self.logger.info(f'exc {format_exc()}')
-            self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
-            return "\n\n{logs are not available}", {}
-
-        logs = []
-        for i in container_logs:
-            line = i.decode('utf-8', errors='ignore')
-            self.logger.info(f'{container_name} - {line}')
-            logs.append(line)
-
-        self.logger.info(f'Log stream ended for {container_name}')
-
-        logs = ''.join(logs)
-        match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
-        try:
-            container_stats['memory_usage'] = match.group(1)
-        except AttributeError:
-            ...
-
+            self.logger.warning(f'Container stats are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
+        if container_logs:
+            logs = []
+            for i in container_logs:
+                line = i.decode('utf-8', errors='ignore')
+                self.logger.info(f'{container_name} - {line}')
+                logs.append(line)
+            self.logger.info(f'Log stream ended for {container_name}')
+            logs = ''.join(logs)
+            match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
+            try:
+                container_stats['memory_usage'] = match.group(1)
+            except AttributeError:
+                ...
+        else:
+            logs = "\n\n{logs are not available}"
+        self.logger.info(f'Container stats: {container_stats}')
+        self.logger.info(f'Container logs: {logs}')
         self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
-
         return logs, container_stats
 
     def download_artifact(self, lambda_id: str) -> None:
