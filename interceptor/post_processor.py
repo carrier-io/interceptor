@@ -109,7 +109,7 @@ class PostProcessor:
         else:
             client = DockerClient(self.logger)
 
-            job = client.run("getcarrier/performance_results_processing:latest",
+            job = client.run("getcarrier/performance_results_processing:beta-1.0",
                              stderr=True, remove=True, detach=True,
                              environment=env_vars)
 
