@@ -99,7 +99,7 @@ class PostProcessor:
                 "mode": self.mode
             })
             job = client.run(
-                "getcarrier/performance_results_processing:latest",
+                "getcarrier/performance_results_processing:beta-1.0",
                 name="post-processing",
                 environment=env_vars,
                 command="",
