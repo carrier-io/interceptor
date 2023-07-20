@@ -2,13 +2,11 @@ name: Build and push Docker images
 
 on:
   push:
-    branches: [ master ]
-  #pull_request:
-  #  branches: [ master ]
+    branches: [ test ]
   workflow_dispatch:
     inputs:
         docker_tag:
-          default: "getcarrier/interceptor:latest"
+          default: "aspect13/interceptor:test"
           description: "Docker image name and tag"
           required: true
 
@@ -38,4 +36,4 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ${{ inputs.docker_tag || 'getcarrier/interceptor:latest' }}
+          tags: ${{ inputs.docker_tag || 'aspect13/interceptor:test' }}
