@@ -310,14 +310,14 @@ def execute_job(job_type, container, execution_params, job_name,
 
 def main():
     if QUEUE_NAME != "__internal":
-        rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration',
-                                   api_version=1)
-        url = f"{c.LOKI_HOST}{rabbit_url}/{VHOST}"
-        data = {"name": QUEUE_NAME}
-        headers = {'content-type': 'application/json'}
-        if TOKEN:
-            headers['Authorization'] = f'bearer {TOKEN}'
-        requests.post(url, json=data, headers=headers)
+        if c.PYLON_URL:
+            rabbit_url = build_api_url('projects', 'rabbitmq', mode='administration')
+            url = f"{c.PYLON_URL}{rabbit_url}/{VHOST}"
+            data = {"name": QUEUE_NAME}
+            headers = {'content-type': 'application/json'}
+            if TOKEN:
+                headers['Authorization'] = f'bearer {TOKEN}'
+            requests.post(url, json=data, headers=headers)
     app.run(workers=int(CPU_CORES))
 
 
