@@ -10,6 +10,7 @@ from kubernetes.client import ApiClient, V1EnvVar, ApiException, V1SecurityConte
     V1Volume
 
 from interceptor import constants as c
+from interceptor.constants import LAMBDA_CONTAINER_REPO
 from interceptor.utils import build_api_url
 
 NANO_TO_MILL_MULTIPLIER = 1000000
@@ -306,7 +307,7 @@ class KubernetesClient(Client):
 
         task = client.V1Container(
             name="main",
-            image=f"getcarrier/{image}",
+            image=f"{LAMBDA_CONTAINER_REPO}/{image}",
             args=command,
             resources=client.V1ResourceRequirements(
                 limits={"cpu": "1000m", "memory": "1G"},

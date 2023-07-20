@@ -111,7 +111,7 @@ def post_process(
         **kwargs
 ):
     centry_logger = get_centry_logger(
-        hostname="interceptor",
+        hostname="post-processor",
         labels={
             "build_id": build_id,
             "project": project_id,

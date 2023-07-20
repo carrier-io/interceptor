@@ -2,9 +2,9 @@ import json
 from os import path, environ
 from typing import Optional
 
-import docker
 import requests
 
+from interceptor.constants import POSTPROCESSOR_CONTAINER
 from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger as global_logger
@@ -103,7 +103,7 @@ class PostProcessor:
                 "mode": self.mode
             })
             job = client.run(
-                "getcarrier/performance_results_processing:latest",
+                POSTPROCESSOR_CONTAINER,
                 name="post-processing",
                 environment=env_vars,
                 command="",
@@ -113,7 +113,7 @@ class PostProcessor:
         else:
             client = DockerClient(self.logger)
 
-            job = client.run("getcarrier/performance_results_processing:latest",
+            job = client.run(POSTPROCESSOR_CONTAINER,
                              stderr=True, remove=True, detach=True,
                              environment=env_vars)
 
