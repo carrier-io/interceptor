@@ -16,10 +16,10 @@ from docker.errors import APIError
 from docker.models.volumes import Volume
 from docker.types import Mount
 
-from interceptor.constants import NAME_CONTAINER_MAPPING
 from interceptor.containers_backend import KubernetesClient
 from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
+from interceptor import constants as c
 
 
 class LambdaExecutor:
@@ -67,7 +67,7 @@ class LambdaExecutor:
     def execute_lambda(self):
         self.logger.info(f'task {self.task}')
         self.logger.info(f'event {self.event}')
-        container_name = NAME_CONTAINER_MAPPING.get(self.task['runtime'])
+        container_name = c.NAME_CONTAINER_MAPPING.get(self.task['runtime'])
         if not container_name:
             self.logger.error(f"Container {self.task['runtime']} is not found")
             raise Exception(f"Container {self.task['runtime']} is not found")
@@ -86,6 +86,7 @@ class LambdaExecutor:
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
             results = log.strip().split('\n\n')[-1]
+
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
@@ -133,8 +134,8 @@ class LambdaExecutor:
             sleep(5)
         logs = []
         job.log_status(logs)
-        # TODO: grab stats from kubernetes
-        return "".join(logs), {}
+        stats = {'kubernetes_stats': job.collect_resource_usage()}
+        return "".join(logs), stats
 
     def remove_volume(self, volume, attempts: int = 3) -> None:
         for _ in range(attempts):
@@ -168,6 +169,10 @@ class LambdaExecutor:
         except AttributeError:
             ...
 
+        nano_cpus = int(float(self.env_vars["cpu_cores"]) * c.CPU_MULTIPLIER) if self.env_vars.get(
+            "cpu_cores") else c.CONTAINER_CPU_QUOTA
+        mem_limit = f'{self.env_vars["memory"]}g' if self.env_vars.get(
+            "memory") else c.CONTAINER_MEMORY_QUOTA
         container_stats = {}
         container_logs = None
         container = client.containers.run(
@@ -177,7 +182,9 @@ class LambdaExecutor:
             stderr=True,
             remove=True,
             environment=self.env_vars,
-            detach=True
+            detach=True,
+            nano_cpus=nano_cpus, 
+            mem_limit=mem_limit
         )
         self.logger.info(f'Container obj: {container}')
         try:

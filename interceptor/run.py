@@ -127,11 +127,16 @@ def post_process(
             integration, exec_params
         ).results_post_processing()
         last_logs = []
+        params = {'galloper_url': galloper_url, 'token': token, 'report_id': report_id}
         while not job.is_finished():
-            sleep(10)
+            time_to_sleep = 10
+            sleep(time_to_sleep)
             try:
                 job.log_status(last_logs)
-            except:
+                job.send_resource_usage(job_type='post_process', params=params, 
+                    time_to_sleep=time_to_sleep)
+            except Exception as e:
+                centry_logger.error(e)
                 break
             global stop_task
             if stop_task:
@@ -246,7 +251,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         return
     last_logs = []
     while not job.is_finished():
-        sleep(10)
+        time_to_sleep = 10
+        sleep(time_to_sleep)
         global stop_task
         if stop_task:
             stop_task = False
@@ -254,6 +260,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
             return
         try:
             job.log_status(last_logs)
+            job.send_resource_usage(job_type=job_type, params=execution_params, 
+                time_to_sleep=time_to_sleep)
         except Exception as exc:
             centry_logger.warning(f"FETCHING LOGS FAILED {exc}")
     return "Done"
@@ -294,7 +302,8 @@ def execute_job(job_type, container, execution_params, job_name,
         return f"Failed to run docker container {container}"
     last_logs = []
     while not job.is_finished():
-        sleep(10)
+        time_to_sleep = 10
+        sleep(time_to_sleep)
         global stop_task
         if stop_task:
             stop_task = False
@@ -303,7 +312,10 @@ def execute_job(job_type, container, execution_params, job_name,
             exit(0)
         try:
             job.log_status(last_logs)
-        except:
+            job.send_resource_usage(job_type=job_type, params=execution_params, 
+                time_to_sleep=time_to_sleep)
+        except Exception as e:
+            centry_logger.error(e)
             break
     return "Done"
 

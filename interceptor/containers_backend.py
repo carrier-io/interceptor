@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from uuid import uuid4
+from datetime import datetime
 
 import docker
 import requests
@@ -46,6 +47,11 @@ class Job(ABC):
     def log_status(self, last_logs: list):
         raise NotImplementedError
 
+    @abstractmethod
+    def send_resource_usage(self, job_type, params, time_to_sleep=None):
+        raise NotImplementedError
+
+
 
 class DockerJob(Job):
 
@@ -77,6 +83,26 @@ class DockerJob(Job):
             if each not in last_logs:
                 self.logger.info(each)
                 last_logs.append(each)
+
+    def send_resource_usage(self, job_type, params, time_to_sleep=None):
+        base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
+        token = params.get("token")
+        statisticts_url = build_api_url('projects', 'resource_usage', mode='administration')
+        url = f"{base_url}{statisticts_url}"
+        resource_usage = self.client_lowlevel.stats(self.cid.id, stream=False)
+        data = {
+            'report_id': params['report_id'],
+            'job_type': job_type,
+            'time': str(datetime.now()),
+            'time_to_sleep': time_to_sleep,
+            'cpu': round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2),
+            'memory_usage': round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2),
+            'memory_limit': round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2),               
+        }
+        headers = {'content-type': 'application/json'}
+        if token:
+            headers['Authorization'] = f'bearer {token}'
+        requests.put(url, json=data, headers=headers)
 
     @property
     def status(self):
@@ -139,6 +165,40 @@ class KubernetesJob(Job):
                         self.logger.info(f"[runner {idx + 1}] {log}")
                         last_logs.append(log)
 
+    def send_resource_usage(self, job_type, params, time_to_sleep=None):
+        base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
+        token = params.get("token")
+        statisticts_url = build_api_url('projects', 'resource_usage', mode='administration')
+        url = f"{base_url}{statisticts_url}"
+        resource_usage = self.collect_resource_usage()
+        data = {
+            'time': str(datetime.now()),
+            'report_id': params['report_id'],
+            'time_to_sleep': time_to_sleep,
+            'job_type': job_type,
+            'stats': resource_usage                 
+        }
+        headers = {'content-type': 'application/json'}
+        if token:
+            headers['Authorization'] = f'bearer {token}'
+        requests.put(url, json=data, headers=headers)
+
+    def collect_resource_usage(self):
+        resource_usage = []
+        try:
+            pods = self.core_api.list_namespaced_pod(
+                namespace=self.namespace, label_selector=f"job-name={self.job_name}")
+        except ApiException as exc:
+            self.logger.warning(exc)
+        else:
+            for idx, pod in enumerate(pods.items):
+                container = pod.spec.containers[0]
+                container_limits = container.resources.limits
+                resource_usage.append({
+                    'pod': pod.metadata.name,
+                    'cpu_limit': container_limits['cpu'], 
+                    'memory_limit': container_limits['memory']})
+        return resource_usage  
 
 class DockerClient(Client):
 
