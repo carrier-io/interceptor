@@ -23,6 +23,7 @@ LOKI_HOST = environ.get('LOKI_HOST', "")
 LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')
 REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" else False
+PYLON_URL = environ.get('PYLON_URL')
 
 
 NAME_CONTAINER_MAPPING = {

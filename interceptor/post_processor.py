@@ -80,12 +80,16 @@ class PostProcessor:
 
     def results_post_processing(self):
 
-        env_vars = {"base_url": self.galloper_url, "token": self.token,
-                    'galloper_url': self.galloper_url,
-                    "project_id": self.project_id,
-                    "bucket": self.bucket, "build_id": self.build_id,
-                    "report_id": self.report_id,
-                    "integrations": self.integration, "exec_params": self.exec_params}
+        env_vars = {
+            "base_url": self.galloper_url,
+            "token": self.token,
+            "project_id": self.project_id,
+            "bucket": self.bucket,
+            "build_id": self.build_id,
+            "report_id": self.report_id,
+            "integrations": self.integration,
+            "exec_params": self.exec_params
+        }
 
         if kubernetes_settings := json.loads(
                 self.integration).get("clouds", {}).get("kubernetes", {}):

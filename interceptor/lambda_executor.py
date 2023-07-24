@@ -85,10 +85,8 @@ class LambdaExecutor:
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
-            try:
-                results = log.split("\n\n")[1]
-            except IndexError:
-                results = log
+            results = log.strip().split('\n\n')[-1]
+
         task_result_id = self.task["task_result_id"]
         try:
             task_status = "Done" if 200 <= int(json.loads(results).get('statusCode')) <= 299 else "Failed"
@@ -139,6 +137,21 @@ class LambdaExecutor:
         stats = {'kubernetes_stats': job.collect_resource_usage()}
         return "".join(logs), stats
 
+    def remove_volume(self, volume, attempts: int = 3) -> None:
+        for _ in range(attempts):
+            sleep(1)
+            try:
+                volume.remove(force=True)
+                self.logger.info(f'Volume removed {volume}')
+                shutil.rmtree(volume._centry_path, ignore_errors=True)
+                self.logger.info(f'Volume path cleared {volume._centry_path}')
+                break
+            except APIError:
+                self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{attempts}')
+
+        else:
+            self.logger.warning(f'Failed to remove docker volume after {attempts} attempts')
+
     def execute_in_docker(self, container_name: str) -> Tuple[str, dict]:
         ATTEMPTS_TO_REMOVE_VOL = 3
 
@@ -160,7 +173,8 @@ class LambdaExecutor:
             "cpu_cores") else c.CONTAINER_CPU_QUOTA
         mem_limit = f'{self.env_vars["memory"]}g' if self.env_vars.get(
             "memory") else c.CONTAINER_MEMORY_QUOTA
-
+        container_stats = {}
+        container_logs = None
         container = client.containers.run(
             f'getcarrier/{container_name}',
             command=self.command,
@@ -172,46 +186,31 @@ class LambdaExecutor:
             nano_cpus=nano_cpus, 
             mem_limit=mem_limit
         )
+        self.logger.info(f'Container obj: {container}')
         try:
-            self.logger.info(f'container obj {container}')
             container_stats = container.stats(decode=False, stream=False)
             container_logs = container.logs(stream=True, follow=True)
-
         except Exception as e:
-            self.logger.info(f'logs are not available {e}')
-            self.logger.info(f'exc {format_exc()}')
-            return "\n\n{logs are not available}", {}
-
-        else:
+            self.logger.warning(f'Container stats are not available {e}')
+            self.logger.warning(f'exc: {format_exc()}')
+        if container_logs:
             logs = []
             for i in container_logs:
                 line = i.decode('utf-8', errors='ignore')
                 self.logger.info(f'{container_name} - {line}')
                 logs.append(line)
-
             self.logger.info(f'Log stream ended for {container_name}')
-
             logs = ''.join(logs)
             match = re.search(r'memory used: (\d+ \w+).*?', logs, re.I)
             try:
                 container_stats['memory_usage'] = match.group(1)
             except AttributeError:
                 ...
-        finally:
-            for _ in range(ATTEMPTS_TO_REMOVE_VOL):
-                sleep(1)
-                try:
-                    volume.remove(force=True)
-                    self.logger.info(f'Volume removed {volume}')
-                    shutil.rmtree(volume._centry_path, ignore_errors=True)
-                    self.logger.info(f'Volume path cleared {volume._centry_path}')
-                    break
-                except APIError:
-                    self.logger.info(f'Failed to remove volume. Sleeping for 1. Attempt {i + 1}/{ATTEMPTS_TO_REMOVE_VOL}')
-
-            else:
-                self.logger.warning(f'Failed to remove docker volume after {ATTEMPTS_TO_REMOVE_VOL} attempts')
-
+        else:
+            logs = "\n\n{logs are not available}"
+        self.logger.info(f'Container stats: {container_stats}')
+        self.logger.info(f'Container logs: {logs}')
+        self.remove_volume(volume, attempts=ATTEMPTS_TO_REMOVE_VOL)
         return logs, container_stats
 
     def download_artifact(self, lambda_id: str) -> None:
