@@ -109,7 +109,7 @@ def post_process(
         exec_params: Optional[dict] = None,
         logger_stop_words: Iterable = tuple(),
         **kwargs
-):
+) -> str:
     centry_logger = get_centry_logger(
         hostname="post-processor",
         labels={
@@ -120,11 +120,35 @@ def post_process(
         stop_words=logger_stop_words
     )
     centry_logger.info("Start post processing")
+    centry_logger.critical("SKIPPING POST PROCESSING")
+    centry_logger.critical("pp args %s", dict(
+        galloper_url=galloper_url,
+        project_id=project_id,
+        galloper_web_hook=galloper_web_hook,
+        report_id=report_id,
+        build_id=build_id,
+        bucket=bucket,
+        prefix=prefix,
+        logger=centry_logger,
+        token=token,
+        integrations=integration,
+        exec_params=exec_params
+    ))
+    sleep(10)
+    return 'Skipped'
     try:
         job: Job = PostProcessor(
-            galloper_url, project_id, galloper_web_hook, report_id,
-            build_id, bucket, prefix, centry_logger, token,
-            integration, exec_params
+            galloper_url=galloper_url,
+            project_id=project_id,
+            galloper_web_hook=galloper_web_hook,
+            report_id=report_id,
+            build_id=build_id,
+            bucket=bucket,
+            prefix=prefix,
+            logger=centry_logger,
+            token=token,
+            integrations=integration,
+            exec_params=exec_params
         ).results_post_processing()
         last_logs = []
         params = {'galloper_url': galloper_url, 'token': token, 
@@ -144,11 +168,11 @@ def post_process(
                 stop_task = False
                 exit(0)
         return "Done"
-
     except Exception:
         centry_logger.info(format_exc())
         centry_logger.info("Failed to run postprocessor")
         return "Failed"
+
 
 
 @app.task(name="browsertime")
