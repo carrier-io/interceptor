@@ -1,12 +1,10 @@
 import json
-from os import path, environ
 from typing import Optional
 
 import requests
 
 from interceptor.constants import POSTPROCESSOR_CONTAINER
 from interceptor.containers_backend import DockerClient, KubernetesClient
-from interceptor.lambda_executor import LambdaExecutor
 from interceptor.logger import logger as global_logger
 from interceptor.utils import build_api_url
 
@@ -17,7 +15,8 @@ class PostProcessor:
             self, galloper_url: str, project_id: int, galloper_web_hook: str,
             report_id, build_id: str, bucket: str, prefix: str,
             logger=global_logger, token: Optional[str] = None,
-            integration: Optional[list] = None, exec_params: Optional[dict] = None,
+            integrations: dict | str | None = None,
+            exec_params: Optional[dict] = None,
             mode: str = 'default', **kwargs
     ):
         self.logger = logger
@@ -29,7 +28,12 @@ class PostProcessor:
         self.prefix = prefix
         self.config_file = '{}'
         self.token = token
-        self.integration = integration if integration else []
+        if not integrations:
+            self.integrations = dict()
+        elif isinstance(integrations, str):
+            self.integrations = json.loads(integrations)
+        else:
+            self.integrations = integrations
         self.report_id = report_id
         self.exec_params = exec_params if exec_params else {}
         self.mode = mode
@@ -52,69 +56,47 @@ class PostProcessor:
         except:
             self.logger.info(response.text)
 
-    def results_post_processing_old(self):
-        if self.galloper_web_hook:
-            if path.exists('/tmp/config.yaml'):
-                with open("/tmp/config.yaml", "r") as f:
-                    self.config_file = f.read()
-            else:
-                self.config_file = environ.get('CONFIG_FILE', '{}')
-
-            event = {'galloper_url': self.galloper_url, 'project_id': self.project_id,
-                     'config_file': json.dumps(self.config_file),
-                     'bucket': self.bucket, 'prefix': self.prefix, 'token': self.token,
-                     'integration': self.integration, "report_id": self.report_id}
-            task_url = build_api_url('tasks', 'task', mode=self.mode,
-                                     api_version=self.api_version)
-            endpoint = f"{task_url}/{self.project_id}/" \
-                       f"{self.galloper_web_hook.replace(self.galloper_url + '/task/', '')}?exec=True"
-            task = requests.get(f"{self.galloper_url}{endpoint}",
-                                headers=self.api_headers).json()
-            try:
-                LambdaExecutor(task, event, self.galloper_url, self.token,
-                               self.logger).execute_lambda()
-            except Exception as exc:
-                self.update_test_status("Error", 100, f"Failed to start postprocessing")
-                raise exc
-
-    def results_post_processing(self):
-
-        env_vars = {
+    @property
+    def env_vars(self) -> dict:
+        return {
             "base_url": self.galloper_url,
             "token": self.token,
             "project_id": self.project_id,
             "bucket": self.bucket,
             "build_id": self.build_id,
             "report_id": self.report_id,
-            "integrations": self.integration,
+            "integrations": self.integrations,
             "exec_params": self.exec_params
         }
 
-        if kubernetes_settings := json.loads(
-                self.integration).get("clouds", {}).get("kubernetes", {}):
+    @property
+    def kubernetes_settings(self) -> Optional[dict]:
+        return self.integrations.get('clouds', {}).get('kubernetes')
 
+    def results_post_processing(self):
+        if self.kubernetes_settings:
             client = KubernetesClient(**{
-                "host": kubernetes_settings["hostname"],
-                "token": kubernetes_settings["k8s_token"],
-                "namespace": kubernetes_settings["namespace"],
+                "host": self.kubernetes_settings["hostname"],
+                "token": self.kubernetes_settings["k8s_token"],
+                "namespace": self.kubernetes_settings["namespace"],
                 "jobs_count": 1,
                 "logger": self.logger,
-                "secure_connection": kubernetes_settings["secure_connection"],
+                "secure_connection": self.kubernetes_settings["secure_connection"],
                 "mode": self.mode
             })
             job = client.run(
                 POSTPROCESSOR_CONTAINER,
                 name="post-processing",
-                environment=env_vars,
+                environment=self.env_vars,
                 command="",
-                nano_cpus=kubernetes_settings["post_processor_cpu_cores_limit"] * 1000000000,
-                mem_limit=f"{kubernetes_settings['post_processor_memory_limit']}G",
+                nano_cpus=self.kubernetes_settings["post_processor_cpu_cores_limit"] * 1000000000,
+                mem_limit=f"{self.kubernetes_settings['post_processor_memory_limit']}G",
             )
         else:
             client = DockerClient(self.logger)
 
             job = client.run(POSTPROCESSOR_CONTAINER,
                              stderr=True, remove=True, detach=True,
-                             environment=env_vars)
+                             environment=self.env_vars)
 
         return job
