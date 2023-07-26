@@ -102,12 +102,17 @@ def terminate_ec2_instances(
 
 @app.task(name="post_process")
 def post_process(
-        galloper_url: str, project_id: int, galloper_web_hook,
-        report_id, bucket, prefix,
-        build_id: str, token: Optional[str] = None,
+        galloper_url: str,
+        project_id: int,
+        report_id: int,
+        bucket: str,
+        build_id: str,
+        token: Optional[str] = None,
         integration: Optional[list] = None,
-        exec_params: Optional[dict] = None,
+        exec_params: dict | str | None = None,
         logger_stop_words: Iterable = tuple(),
+        # prefix: Optional[str] = None,
+        # galloper_web_hook: Optional[str] = None,
         **kwargs
 ) -> str:
     centry_logger = get_centry_logger(
@@ -124,45 +129,31 @@ def post_process(
     centry_logger.critical("pp args %s", dict(
         galloper_url=galloper_url,
         project_id=project_id,
-        galloper_web_hook=galloper_web_hook,
         report_id=report_id,
         build_id=build_id,
         bucket=bucket,
-        prefix=prefix,
         logger=centry_logger,
         token=token,
         integrations=integration,
-        exec_params=exec_params
+        exec_params=exec_params,
+        kwargs=kwargs
     ))
-    centry_logger.critical("pp env_vars %s", PostProcessor(
+    pp = PostProcessor(
         galloper_url=galloper_url,
         project_id=project_id,
-        galloper_web_hook=galloper_web_hook,
         report_id=report_id,
         build_id=build_id,
         bucket=bucket,
-        prefix=prefix,
         logger=centry_logger,
         token=token,
         integrations=integration,
         exec_params=exec_params
-    ).env_vars)
+    )
+    centry_logger.critical("pp env_vars %s", pp.env_vars)
     sleep(10)
-    return 'Skipped'
+    return 'Done'
     try:
-        job: Job = PostProcessor(
-            galloper_url=galloper_url,
-            project_id=project_id,
-            galloper_web_hook=galloper_web_hook,
-            report_id=report_id,
-            build_id=build_id,
-            bucket=bucket,
-            prefix=prefix,
-            logger=centry_logger,
-            token=token,
-            integrations=integration,
-            exec_params=exec_params
-        ).results_post_processing()
+        job: Job = pp.results_post_processing()
         last_logs = []
         params = {'galloper_url': galloper_url, 'token': token, 
                   'report_id': report_id, 'project_id': project_id}
