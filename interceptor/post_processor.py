@@ -65,7 +65,7 @@ class PostProcessor:
             "bucket": self.bucket,
             "build_id": self.build_id,
             "report_id": self.report_id,
-            "integrations": self.integrations,
+            "integrations": json.dumps(self.integrations),
             "exec_params": self.exec_params
         }
 

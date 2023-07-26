@@ -134,6 +134,19 @@ def post_process(
         integrations=integration,
         exec_params=exec_params
     ))
+    centry_logger.critical("pp env_vars %s", PostProcessor(
+        galloper_url=galloper_url,
+        project_id=project_id,
+        galloper_web_hook=galloper_web_hook,
+        report_id=report_id,
+        build_id=build_id,
+        bucket=bucket,
+        prefix=prefix,
+        logger=centry_logger,
+        token=token,
+        integrations=integration,
+        exec_params=exec_params
+    ).env_vars)
     sleep(10)
     return 'Skipped'
     try:
@@ -166,7 +179,6 @@ def post_process(
         centry_logger.info(format_exc())
         centry_logger.info("Failed to run postprocessor")
         return "Failed"
-
 
 
 @app.task(name="browsertime")
