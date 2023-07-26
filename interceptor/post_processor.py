@@ -11,31 +11,33 @@ from interceptor.utils import build_api_url
 
 class PostProcessor:
 
+    @staticmethod
+    def handle_json_dict(json_dict: dict | str | None = None) -> dict:
+        if not json_dict:
+            return dict()
+        elif isinstance(json_dict, str):
+            return json.loads(json_dict)
+        else:
+            return json_dict
+
     def __init__(
-            self, galloper_url: str, project_id: int, galloper_web_hook: str,
-            report_id, build_id: str, bucket: str, prefix: str,
+            self, galloper_url: str, project_id: int,
+            report_id, build_id: str, bucket: str,
             logger=global_logger, token: Optional[str] = None,
             integrations: dict | str | None = None,
-            exec_params: Optional[dict] = None,
+            exec_params: dict | str | None = None,
             mode: str = 'default', **kwargs
     ):
         self.logger = logger
         self.galloper_url = galloper_url
         self.project_id = project_id
-        self.galloper_web_hook = galloper_web_hook
         self.build_id = build_id
         self.bucket = bucket
-        self.prefix = prefix
         self.config_file = '{}'
         self.token = token
-        if not integrations:
-            self.integrations = dict()
-        elif isinstance(integrations, str):
-            self.integrations = json.loads(integrations)
-        else:
-            self.integrations = integrations
+        self.integrations = self.handle_json_dict(integrations)
+        self.exec_params = self.handle_json_dict(exec_params)
         self.report_id = report_id
-        self.exec_params = exec_params if exec_params else {}
         self.mode = mode
         self.api_version = kwargs.get('api_version', 1)
         self.api_headers = {
@@ -66,7 +68,7 @@ class PostProcessor:
             "build_id": self.build_id,
             "report_id": self.report_id,
             "integrations": json.dumps(self.integrations),
-            "exec_params": self.exec_params
+            "exec_params": json.dumps(self.exec_params)
         }
 
     @property
