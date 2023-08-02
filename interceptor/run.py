@@ -150,8 +150,9 @@ def post_process(
         exec_params=exec_params
     )
     centry_logger.critical("pp env_vars %s", pp.env_vars)
-    sleep(10)
-    return 'Done'
+    sleep(5)
+    if kwargs.get('skip'):
+        return 'Done'
     try:
         job: Job = pp.results_post_processing()
         last_logs = []
