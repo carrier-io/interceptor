@@ -113,6 +113,7 @@ def post_process(
         logger_stop_words: Iterable = tuple(),
         # prefix: Optional[str] = None,
         # galloper_web_hook: Optional[str] = None,
+        manual_run: bool = False,
         **kwargs
 ) -> str:
     centry_logger = get_centry_logger(
@@ -147,7 +148,8 @@ def post_process(
         logger=centry_logger,
         token=token,
         integrations=integration,
-        exec_params=exec_params
+        exec_params=exec_params,
+        manual_run=manual_run
     )
     centry_logger.critical("pp env_vars %s", pp.env_vars)
     sleep(5)

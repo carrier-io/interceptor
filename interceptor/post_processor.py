@@ -1,12 +1,10 @@
 import json
 from typing import Optional
 
-import requests
 
 from interceptor.constants import POSTPROCESSOR_CONTAINER
 from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.logger import logger as global_logger
-from interceptor.utils import build_api_url
 
 
 class PostProcessor:
@@ -26,14 +24,15 @@ class PostProcessor:
             logger=global_logger, token: Optional[str] = None,
             integrations: dict | str | None = None,
             exec_params: dict | str | None = None,
-            mode: str = 'default', **kwargs
+            mode: str = 'default', manual_run: bool = False,
+            **kwargs
     ):
         self.logger = logger
-        self.galloper_url = galloper_url
+        self.base_url = galloper_url
         self.project_id = project_id
         self.build_id = build_id
         self.bucket = bucket
-        self.config_file = '{}'
+        # self.config_file = '{}'
         self.token = token
         self.integrations = self.handle_json_dict(integrations)
         self.exec_params = self.handle_json_dict(exec_params)
@@ -44,31 +43,20 @@ class PostProcessor:
             'Content-Type': 'application/json',
             'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
         }
-
-    def update_test_status(self, status, percentage, description):
-        data = {"test_status": {"status": status, "percentage": percentage,
-                                "description": description}}
-        status_url = build_api_url('backend_performance', 'report_status', mode=self.mode,
-                                   api_version=self.api_version)
-        url = f'{self.galloper_url}{status_url}/' \
-              f'{self.project_id}/{self.report_id}'
-        response = requests.put(url, json=data, headers=self.api_headers)
-        try:
-            self.logger.info(response.json()["message"])
-        except:
-            self.logger.info(response.text)
+        self.manual_run = manual_run
 
     @property
     def env_vars(self) -> dict:
         return {
-            "base_url": self.galloper_url,
+            "base_url": self.base_url,
             "token": self.token,
             "project_id": self.project_id,
             "bucket": self.bucket,
             "build_id": self.build_id,
             "report_id": self.report_id,
             "integrations": json.dumps(self.integrations),
-            "exec_params": json.dumps(self.exec_params)
+            "exec_params": json.dumps(self.exec_params),
+            "manual_run": self.manual_run
         }
 
     @property
@@ -97,8 +85,10 @@ class PostProcessor:
         else:
             client = DockerClient(self.logger)
 
-            job = client.run(POSTPROCESSOR_CONTAINER,
-                             stderr=True, remove=True, detach=True,
-                             environment=self.env_vars)
+            job = client.run(
+                POSTPROCESSOR_CONTAINER,
+                stderr=True, remove=True, detach=True,
+                environment=self.env_vars
+            )
 
         return job
