@@ -87,7 +87,7 @@ class DockerJob(Job):
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
         token = params.get("token")
-        statisticts_url = build_api_url('projects', 'resource_usage', mode='administration')
+        statisticts_url = build_api_url('usage', 'vcu', mode='administration')
         url = f"{base_url}{statisticts_url}"
         resource_usage = self.client_lowlevel.stats(self.cid.id, stream=False)
         data = {
@@ -168,7 +168,7 @@ class KubernetesJob(Job):
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
         token = params.get("token")
-        statisticts_url = build_api_url('projects', 'resource_usage', mode='administration')
+        statisticts_url = build_api_url('usage', 'vcu', mode='administration')
         url = f"{base_url}{statisticts_url}"
         resource_usage = self.collect_resource_usage()
         data = {
