@@ -45,6 +45,21 @@ class PostProcessor:
         }
         self.manual_run = manual_run
 
+    def set_test_status(self, status: dict):
+        from interceptor.utils import build_api_url
+        import requests
+        report_status_url = '/'.join(map(str, [
+            self.base_url,
+            build_api_url('backend_performance', 'report_status', skip_mode=True).lstrip('/'),
+            self.project_id,
+            self.report_id
+        ]))
+        requests.put(
+            report_status_url,
+            headers=self.api_headers,
+            json={"test_status": status}
+        )
+
     @property
     def env_vars(self) -> dict:
         return {

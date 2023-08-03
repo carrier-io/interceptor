@@ -168,6 +168,12 @@ def post_process(
             if stop_task:
                 stop_task = False
                 exit(0)
+        if pp.manual_run:
+            pp.set_test_status({
+                'status': 'Finished',
+                'percentage': 100,
+                'description': 'Success after post processing manual run'
+            })
         return "Done"
     except Exception:
         centry_logger.info(format_exc())
