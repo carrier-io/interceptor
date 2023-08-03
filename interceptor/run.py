@@ -174,8 +174,8 @@ def post_process(
         #     })
         return "Done"
     except Exception:
-        centry_logger.info(format_exc())
         centry_logger.info("Failed to run postprocessor")
+        centry_logger.info(format_exc())
         return "Failed"
 
 
