@@ -126,19 +126,19 @@ def post_process(
         stop_words=logger_stop_words
     )
     centry_logger.info("Start post processing")
-    centry_logger.critical("SKIPPING POST PROCESSING")
-    centry_logger.critical("pp args %s", dict(
-        galloper_url=galloper_url,
-        project_id=project_id,
-        report_id=report_id,
-        build_id=build_id,
-        bucket=bucket,
-        logger=centry_logger,
-        token=token,
-        integrations=integration,
-        exec_params=exec_params,
-        kwargs=kwargs
-    ))
+    # centry_logger.critical("SKIPPING POST PROCESSING")
+    # centry_logger.critical("pp args %s", dict(
+    #     galloper_url=galloper_url,
+    #     project_id=project_id,
+    #     report_id=report_id,
+    #     build_id=build_id,
+    #     bucket=bucket,
+    #     logger=centry_logger,
+    #     token=token,
+    #     integrations=integration,
+    #     exec_params=exec_params,
+    #     kwargs=kwargs
+    # ))
     pp = PostProcessor(
         galloper_url=galloper_url,
         project_id=project_id,
@@ -151,8 +151,6 @@ def post_process(
         exec_params=exec_params,
         manual_run=manual_run
     )
-    centry_logger.critical("pp env_vars %s", pp.env_vars)
-    sleep(5)
     if kwargs.get('skip'):
         return 'Done'
     try:
@@ -174,12 +172,12 @@ def post_process(
             if stop_task:
                 stop_task = False
                 exit(0)
-        if pp.manual_run:
-            pp.set_test_status({
-                'status': 'Finished',
-                'percentage': 100,
-                'description': 'Success after post processing manual run'
-            })
+        # if pp.manual_run:
+        #     pp.set_test_status({
+        #         'status': 'Finished',
+        #         'percentage': 100,
+        #         'description': 'Success after post processing manual run'
+        #     })
         return "Done"
     except Exception:
         centry_logger.info(format_exc())
