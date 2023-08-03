@@ -127,7 +127,8 @@ def post_process(
             integration, exec_params
         ).results_post_processing()
         last_logs = []
-        params = {'galloper_url': galloper_url, 'token': token, 'report_id': report_id}
+        params = {'galloper_url': galloper_url, 'token': token, 
+                  'report_id': report_id, 'project_id': project_id}
         while not job.is_finished():
             time_to_sleep = 10
             sleep(time_to_sleep)
