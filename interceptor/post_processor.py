@@ -71,7 +71,8 @@ class PostProcessor:
             "report_id": self.report_id,
             "integrations": json.dumps(self.integrations),
             "exec_params": json.dumps(self.exec_params),
-            "manual_run": self.manual_run
+            "manual_run": self.manual_run,
+            "debug": True
         }
 
     @property
