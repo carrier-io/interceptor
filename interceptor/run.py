@@ -116,16 +116,16 @@ def post_process(
         manual_run: bool = False,
         **kwargs
 ) -> str:
-    centry_logger = get_centry_logger(
-        hostname="post-processor",
-        labels={
-            "build_id": build_id,
-            "project": project_id,
-            "report_id": report_id,
-        },
-        stop_words=logger_stop_words
-    )
-    centry_logger.info("Start post processing")
+    # centry_logger = get_centry_logger(
+    #     hostname="post-processor",
+    #     labels={
+    #         "build_id": build_id,
+    #         "project": project_id,
+    #         "report_id": report_id,
+    #     },
+    #     stop_words=logger_stop_words
+    # )
+    # centry_logger.info("Start post processing")
     # centry_logger.critical("SKIPPING POST PROCESSING")
     # centry_logger.critical("pp args %s", dict(
     #     galloper_url=galloper_url,
@@ -145,28 +145,29 @@ def post_process(
         report_id=report_id,
         build_id=build_id,
         bucket=bucket,
-        logger=centry_logger,
         token=token,
         integrations=integration,
         exec_params=exec_params,
-        manual_run=manual_run
+        manual_run=manual_run,
+        logger_stop_words=logger_stop_words
     )
     if kwargs.get('skip'):
         return 'Done'
     try:
         job: Job = pp.results_post_processing()
-        last_logs = []
-        params = {'galloper_url': galloper_url, 'token': token, 
-                  'report_id': report_id, 'project_id': project_id}
+        # last_logs = []
+        # params = {'galloper_url': galloper_url, 'token': token,
+        #           'report_id': report_id, 'project_id': project_id}
         while not job.is_finished():
-            time_to_sleep = 10
-            sleep(time_to_sleep)
+            sleep(10)
             try:
-                job.log_status(last_logs)
-                job.send_resource_usage(job_type='post_process', params=params, 
-                    time_to_sleep=time_to_sleep)
-            except Exception as e:
-                centry_logger.error(e)
+                job.log_status([])
+                # job.send_resource_usage(
+                #     job_type='post_process',
+                #     params=params,
+                #     time_to_sleep=10
+                # )
+            except:
                 break
             global stop_task
             if stop_task:
@@ -180,8 +181,9 @@ def post_process(
         #     })
         return "Done"
     except Exception:
-        centry_logger.info("Failed to run postprocessor")
-        centry_logger.info(format_exc())
+        from interceptor.logger import logger as global_logger
+        global_logger.info("Failed to run postprocessor")
+        global_logger.info(format_exc())
         return "Failed"
 
 
@@ -285,8 +287,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         centry_logger.error(exc)
         return
     last_logs = []
+    time_to_sleep = 10
     while not job.is_finished():
-        time_to_sleep = 10
         sleep(time_to_sleep)
         global stop_task
         if stop_task:
@@ -295,8 +297,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
             return
         try:
             job.log_status(last_logs)
-            job.send_resource_usage(job_type=job_type, params=execution_params, 
-                time_to_sleep=time_to_sleep)
+            # job.send_resource_usage(job_type=job_type, params=execution_params,
+            #     time_to_sleep=time_to_sleep)
         except Exception as exc:
             centry_logger.warning(f"FETCHING LOGS FAILED {exc}")
     return "Done"
@@ -336,8 +338,8 @@ def execute_job(job_type, container, execution_params, job_name,
         centry_logger.error(f"Failed to run docker container {container}")
         return f"Failed to run docker container {container}"
     last_logs = []
+    time_to_sleep = 10
     while not job.is_finished():
-        time_to_sleep = 10
         sleep(time_to_sleep)
         global stop_task
         if stop_task:
@@ -347,8 +349,8 @@ def execute_job(job_type, container, execution_params, job_name,
             exit(0)
         try:
             job.log_status(last_logs)
-            job.send_resource_usage(job_type=job_type, params=execution_params, 
-                time_to_sleep=time_to_sleep)
+            # job.send_resource_usage(job_type=job_type, params=execution_params,
+            #     time_to_sleep=time_to_sleep)
         except Exception as e:
             centry_logger.error(e)
             break
