@@ -1,6 +1,5 @@
 import json
-from typing import Optional
-
+from typing import Optional, Iterable
 
 from interceptor.constants import POSTPROCESSOR_CONTAINER
 from interceptor.containers_backend import DockerClient, KubernetesClient
@@ -25,6 +24,7 @@ class PostProcessor:
             integrations: dict | str | None = None,
             exec_params: dict | str | None = None,
             mode: str = 'default', manual_run: bool = False,
+            logger_stop_words: Iterable = tuple(),
             **kwargs
     ):
         self.logger = logger
@@ -44,6 +44,7 @@ class PostProcessor:
             'Authorization': f'{kwargs.get("token_type", "bearer")} {self.token}'
         }
         self.manual_run = manual_run
+        self.logger_stop_words = logger_stop_words
 
     # def set_test_status(self, status: dict):
     #     from interceptor.utils import build_api_url
@@ -72,7 +73,8 @@ class PostProcessor:
             "integrations": json.dumps(self.integrations),
             "exec_params": json.dumps(self.exec_params),
             "manual_run": self.manual_run,
-            "debug": True
+            "debug": True,
+            "logger_stop_words": json.dumps(self.logger_stop_words)
         }
 
     @property

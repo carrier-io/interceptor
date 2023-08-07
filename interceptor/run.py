@@ -116,16 +116,16 @@ def post_process(
         manual_run: bool = False,
         **kwargs
 ) -> str:
-    centry_logger = get_centry_logger(
-        hostname="post-processor",
-        labels={
-            "build_id": build_id,
-            "project": project_id,
-            "report_id": report_id,
-        },
-        stop_words=logger_stop_words
-    )
-    centry_logger.info("Start post processing")
+    # centry_logger = get_centry_logger(
+    #     hostname="post-processor",
+    #     labels={
+    #         "build_id": build_id,
+    #         "project": project_id,
+    #         "report_id": report_id,
+    #     },
+    #     stop_words=logger_stop_words
+    # )
+    # centry_logger.info("Start post processing")
     # centry_logger.critical("SKIPPING POST PROCESSING")
     # centry_logger.critical("pp args %s", dict(
     #     galloper_url=galloper_url,
@@ -145,21 +145,21 @@ def post_process(
         report_id=report_id,
         build_id=build_id,
         bucket=bucket,
-        logger=centry_logger,
         token=token,
         integrations=integration,
         exec_params=exec_params,
-        manual_run=manual_run
+        manual_run=manual_run,
+        logger_stop_words=logger_stop_words
     )
     if kwargs.get('skip'):
         return 'Done'
     try:
         job: Job = pp.results_post_processing()
-        last_logs = []
+        # last_logs = []
         while not job.is_finished():
             sleep(10)
             try:
-                job.log_status(last_logs)
+                job.log_status([])
             except:
                 break
             global stop_task
@@ -174,8 +174,9 @@ def post_process(
         #     })
         return "Done"
     except Exception:
-        centry_logger.info("Failed to run postprocessor")
-        centry_logger.info(format_exc())
+        from interceptor.logger import logger as global_logger
+        global_logger.info("Failed to run postprocessor")
+        global_logger.info(format_exc())
         return "Failed"
 
 
