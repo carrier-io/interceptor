@@ -2,7 +2,7 @@ import json
 from typing import Optional, Iterable
 
 
-from interceptor.constants import POSTPROCESSOR_CONTAINER
+from interceptor.constants import POSTPROCESSOR_CONTAINER, CPU_MULTIPLIER, CONTAINER_CPU_QUOTA, CONTAINER_MEMORY_QUOTA
 from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.logger import logger as global_logger
 
@@ -84,6 +84,20 @@ class PostProcessor:
     def kubernetes_settings(self) -> Optional[dict]:
         return self.integrations.get('clouds', {}).get('kubernetes')
 
+    @property
+    def nano_cpus(self) -> int:
+        cpu_quota = self.exec_params.get('cpu_quota')
+        if cpu_quota:
+            return int(float(cpu_quota) * CPU_MULTIPLIER)
+        return int(CONTAINER_CPU_QUOTA)
+
+    @property
+    def mem_limit(self) -> str:
+        memory_quota = self.exec_params.get('memory_quota')
+        if memory_quota:
+            return f'{memory_quota}g'
+        return CONTAINER_MEMORY_QUOTA
+
     def results_post_processing(self):
         if self.kubernetes_settings:
             client = KubernetesClient(**{
@@ -104,18 +118,13 @@ class PostProcessor:
                 mem_limit=f"{self.kubernetes_settings['post_processor_memory_limit']}G",
             )
         else:
-            # exec_params = json.loads(self.exec_params)
-            # nano_cpus = int(float(exec_params["cpu_quota"]) * c.CPU_MULTIPLIER) if exec_params.get(
-            #     "cpu_quota") else c.CONTAINER_CPU_QUOTA
-            # mem_limit = f'{exec_params["memory_quota"]}g' if exec_params.get(
-            #     "memory_quota") else c.CONTAINER_MEMORY_QUOTA
             client = DockerClient(self.logger)
 
             job = client.run(
                 POSTPROCESSOR_CONTAINER,
                 stderr=True, remove=True, detach=True,
                 environment=self.env_vars,
-                nano_cpus=nano_cpus, mem_limit=mem_limit
+                nano_cpus=self.nano_cpus, mem_limit=self.mem_limit
             )
 
         return job
