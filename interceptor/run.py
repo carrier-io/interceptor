@@ -111,34 +111,9 @@ def post_process(
         integration: Optional[list] = None,
         exec_params: dict | str | None = None,
         logger_stop_words: Iterable = tuple(),
-        # prefix: Optional[str] = None,
-        # galloper_web_hook: Optional[str] = None,
         manual_run: bool = False,
         **kwargs
 ) -> str:
-    # centry_logger = get_centry_logger(
-    #     hostname="post-processor",
-    #     labels={
-    #         "build_id": build_id,
-    #         "project": project_id,
-    #         "report_id": report_id,
-    #     },
-    #     stop_words=logger_stop_words
-    # )
-    # centry_logger.info("Start post processing")
-    # centry_logger.critical("SKIPPING POST PROCESSING")
-    # centry_logger.critical("pp args %s", dict(
-    #     galloper_url=galloper_url,
-    #     project_id=project_id,
-    #     report_id=report_id,
-    #     build_id=build_id,
-    #     bucket=bucket,
-    #     logger=centry_logger,
-    #     token=token,
-    #     integrations=integration,
-    #     exec_params=exec_params,
-    #     kwargs=kwargs
-    # ))
     pp = PostProcessor(
         galloper_url=galloper_url,
         project_id=project_id,
@@ -154,8 +129,8 @@ def post_process(
     if kwargs.get('skip'):
         return 'Done'
     try:
+        global stop_task
         job: Job = pp.results_post_processing()
-        # last_logs = []
         # params = {'galloper_url': galloper_url, 'token': token,
         #           'report_id': report_id, 'project_id': project_id}
         while not job.is_finished():
@@ -169,16 +144,9 @@ def post_process(
                 # )
             except:
                 break
-            global stop_task
             if stop_task:
                 stop_task = False
                 exit(0)
-        # if pp.manual_run:
-        #     pp.set_test_status({
-        #         'status': 'Finished',
-        #         'percentage': 100,
-        #         'description': 'Success after post processing manual run'
-        #     })
         return "Done"
     except Exception:
         from interceptor.logger import logger as global_logger
