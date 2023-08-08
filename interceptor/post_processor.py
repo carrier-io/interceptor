@@ -1,11 +1,10 @@
 import json
-from typing import Optional
+from typing import Optional, Iterable
 
 
 from interceptor.constants import POSTPROCESSOR_CONTAINER
 from interceptor.containers_backend import DockerClient, KubernetesClient
 from interceptor.logger import logger as global_logger
-from interceptor import constants as c
 
 
 class PostProcessor:
@@ -101,7 +100,7 @@ class PostProcessor:
                 name="post-processing",
                 environment=self.env_vars,
                 command="",
-                nano_cpus=self.kubernetes_settings["post_processor_cpu_cores_limit"] * c.CPU_MULTIPLIER,
+                nano_cpus=self.kubernetes_settings["post_processor_cpu_cores_limit"] * CPU_MULTIPLIER,
                 mem_limit=f"{self.kubernetes_settings['post_processor_memory_limit']}G",
             )
         else:
