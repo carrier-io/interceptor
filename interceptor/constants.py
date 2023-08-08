@@ -43,5 +43,7 @@ NAME_CONTAINER_MAPPING = {
     "Ruby 2.5": 'lambda:ruby2.5'
 }
 
-BROWSERTIME_CONTAINER = 'getcarrier/browsertime:latest'
+LAMBDA_CONTAINER_REPO = environ.get('LAMBDA_CONTAINER_REPO', 'getcarrier')
+BROWSERTIME_CONTAINER = environ.get('BROWSERTIME_CONTAINER', 'getcarrier/browsertime:latest')
+POSTPROCESSOR_CONTAINER = environ.get('POSTPROCESSOR_CONTAINER', 'getcarrier/performance_results_processing:latest')
 STRIP_HEADERS = ["content-length"]
