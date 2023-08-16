@@ -44,6 +44,6 @@ NAME_CONTAINER_MAPPING = {
 }
 
 LAMBDA_CONTAINER_REPO = environ.get('LAMBDA_CONTAINER_REPO', 'getcarrier')
-BROWSERTIME_CONTAINER = environ.get('BROWSERTIME_CONTAINER', 'getcarrier/browsertime:latest')
-POSTPROCESSOR_CONTAINER = environ.get('POSTPROCESSOR_CONTAINER', 'getcarrier/performance_results_processing:latest')
+BROWSERTIME_CONTAINER = environ.get('BROWSERTIME_CONTAINER', 'getcarrier/browsertime:beta-2.0')
+POSTPROCESSOR_CONTAINER = environ.get('POSTPROCESSOR_CONTAINER', 'getcarrier/performance_results_processing:beta-2.0')
 STRIP_HEADERS = ["content-length"]
