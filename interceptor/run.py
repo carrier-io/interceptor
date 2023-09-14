@@ -11,8 +11,14 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import signal
+
 from os import environ
+SSL_CERTS = environ.get('SSL_CERTS', '')
+
+from interceptor import ssl_support
+ssl_support.init(SSL_CERTS)
+
+import signal
 from time import sleep, mktime
 from traceback import format_exc
 from typing import List, Optional, Union, Iterable
@@ -34,13 +40,16 @@ RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
 RABBIT_HOST = environ.get('RABBIT_HOST', 'localhost')
 RABBIT_PORT = environ.get('RABBIT_PORT', '5672')
+RABBIT_USE_SSL = environ.get("RABBIT_USE_SSL", "").lower() in ["true", "yes"]
+RABBIT_SSL_VERIFY = environ.get("RABBIT_SSL_VERIFY", "").lower() in ["true", "yes"]
 QUEUE_NAME = environ.get('QUEUE_NAME', "default")
 CPU_CORES = environ.get('CPU_CORES', 2)
 VHOST = environ.get('VHOST', 'carrier')
 TOKEN = environ.get('TOKEN', '')
 
 app = Minion(host=RABBIT_HOST, port=RABBIT_PORT,
-             user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME, vhost=VHOST)
+             user=RABBIT_USER, password=RABBIT_PASSWORD, queue=QUEUE_NAME, vhost=VHOST,
+             use_ssl=RABBIT_USE_SSL, ssl_verify=RABBIT_SSL_VERIFY)
 
 stop_task = False
 
