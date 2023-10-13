@@ -169,6 +169,12 @@ class LambdaExecutor:
         except AttributeError:
             ...
 
+        network_options = {}
+        if c.LAMBDA_DOCKER_NETWORK:
+            network_options["network"] = c.LAMBDA_DOCKER_NETWORK
+        if c.LAMBDA_DOCKER_NETWORK_MODE:
+            network_options["network_mode"] = c.LAMBDA_DOCKER_NETWORK_MODE
+
         nano_cpus = int(float(self.env_vars["cpu_cores"]) * c.CPU_MULTIPLIER) if self.env_vars.get(
             "cpu_cores") else c.CONTAINER_CPU_QUOTA
         mem_limit = f'{self.env_vars["memory"]}g' if self.env_vars.get(
@@ -183,8 +189,9 @@ class LambdaExecutor:
             remove=True,
             environment=self.env_vars,
             detach=True,
-            nano_cpus=nano_cpus, 
-            mem_limit=mem_limit
+            nano_cpus=nano_cpus,
+            mem_limit=mem_limit,
+            **network_options
         )
         self.logger.info(f'Container obj: {container}')
         try:

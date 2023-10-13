@@ -24,6 +24,8 @@ LOKI_PORT = int(environ.get('LOKI_PORT', 3100))
 LOG_LEVEL = environ.get('LOG_LEVEL', 'info')
 REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" else False
 PYLON_URL = environ.get('PYLON_URL')
+LAMBDA_DOCKER_NETWORK = environ.get("LAMBDA_DOCKER_NETWORK", "").strip()
+LAMBDA_DOCKER_NETWORK_MODE = environ.get("LAMBDA_DOCKER_NETWORK_MODE", "").strip()
 
 
 NAME_CONTAINER_MAPPING = {
