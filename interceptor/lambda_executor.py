@@ -280,6 +280,10 @@ volumes:
         popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
                       cwd=volume_path)
         popen.communicate()
+        cmd = ['docker', 'builder', 'prune', '-f']
+        popen = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True,
+                      cwd=volume_path)
+        popen.communicate()
 
     @staticmethod
     def unzip_local(volume: Volume) -> None:
