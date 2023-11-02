@@ -75,13 +75,15 @@ class DockerJob(Job):
             cpu = round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)
             template += f'\nCPU: {cpu}'
         except KeyError:
-            ...
+            self.logger.warning('Cannot get cpu stats')
+            self.logger.debug(f'resource_usage: {resource_usage}')
         try:
             ram = round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)
             ram_limit = round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)
             template += f'\nRAM: {ram}/{ram_limit}Mb'
         except KeyError:
-            ...
+            self.logger.warning('Cannot get ram stats')
+            self.logger.debug(f'resource_usage: {resource_usage}')
         return template
 
     def log_status(self, last_logs: list):
