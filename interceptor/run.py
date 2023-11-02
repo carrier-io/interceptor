@@ -320,7 +320,7 @@ def execute_job(job_type, container, execution_params, job_name,
             # job.send_resource_usage(job_type=job_type, params=execution_params,
             #     time_to_sleep=time_to_sleep)
         except Exception as e:
-            centry_logger.error(format_exc())
+            centry_logger.debug(format_exc())
             centry_logger.error(e)
             break
     return "Done"

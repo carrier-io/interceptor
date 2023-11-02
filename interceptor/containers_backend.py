@@ -87,10 +87,10 @@ class DockerJob(Job):
             self.logger.debug(f'resource_usage: {resource_usage}')
         return template
 
-    def log_status(self, last_logs: list):
-        self.cid.reload()
-        self.logger.info(self.container_stats)
+    def log_status(self, last_logs: list) -> None:
         try:
+            self.cid.reload()
+            self.logger.info(self.container_stats)
             logs = self.client_lowlevel.logs(
                 self.cid.id, stream=False, tail=100).decode(
                 "utf-8",
