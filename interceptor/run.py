@@ -337,7 +337,7 @@ def main():
                 headers['Authorization'] = f'bearer {c.TOKEN}'
             try:
                 requests.post(url, json=data, headers=headers)
-            except ConnectionError:
+            except requests.exceptions.ConnectionError:
                 print('FAILED TO REGISTER IN PYLON', url, data)
     app.run(workers=int(c.CPU_CORES))
 
