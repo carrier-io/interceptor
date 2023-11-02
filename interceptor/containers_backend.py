@@ -6,6 +6,7 @@ from datetime import datetime
 import docker
 import requests
 import urllib3
+from docker.errors import NotFound
 from kubernetes import client
 from kubernetes.client import ApiClient, V1EnvVar, ApiException, V1SecurityContext, \
     V1Volume
@@ -69,18 +70,18 @@ class DockerJob(Job):
 
     @property
     def container_stats(self) -> str:
-        template = f'Container {self.cid.id} status: {self.cid.status}'
+        template = f'Container {self.cid.id}\n\tSTATUS: {self.cid.status}'
         resource_usage = self.client_lowlevel.stats(self.cid.id, stream=False)
         try:
             cpu = round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)
-            template += f'\nCPU: {cpu}'
+            template += f'\n\tCPU: {cpu}'
         except KeyError:
             self.logger.warning('Cannot get cpu stats')
             self.logger.debug(f'resource_usage: {resource_usage}')
         try:
             ram = round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)
             ram_limit = round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)
-            template += f'\nRAM: {ram}/{ram_limit}Mb'
+            template += f'\n\tRAM: {ram} / {ram_limit} Mb'
         except KeyError:
             self.logger.warning('Cannot get ram stats')
             self.logger.debug(f'resource_usage: {resource_usage}')
@@ -89,15 +90,18 @@ class DockerJob(Job):
     def log_status(self, last_logs: list):
         self.cid.reload()
         self.logger.info(self.container_stats)
-        logs = self.client_lowlevel.logs(
-            self.cid.id, stream=False, tail=100).decode(
-            "utf-8",
-            errors='ignore').split(
-            '\r\n')
-        for each in logs:
-            if each not in last_logs:
-                self.logger.info(each)
-                last_logs.append(each)
+        try:
+            logs = self.client_lowlevel.logs(
+                self.cid.id, stream=False, tail=100).decode(
+                "utf-8",
+                errors='ignore').split(
+                '\r\n')
+            for each in logs:
+                if each not in last_logs:
+                    self.logger.info(each)
+                    last_logs.append(each)
+        except NotFound:
+            self.logger.info('Container terminated')
 
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
