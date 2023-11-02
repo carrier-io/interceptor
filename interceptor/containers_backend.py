@@ -67,14 +67,26 @@ class DockerJob(Job):
     def stop_job(self):
         self.cid.stop(timeout=5)
 
+    @property
+    def container_stats(self) -> str:
+        template = f'Container {self.cid.id} status: {self.cid.status}'
+        resource_usage = self.client_lowlevel.stats(self.cid.id, stream=False)
+        try:
+            cpu = round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)
+            template += f'\nCPU: {cpu}'
+        except KeyError:
+            ...
+        try:
+            ram = round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)
+            ram_limit = round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)
+            template += f'\nRAM: {ram}/{ram_limit}Mb'
+        except KeyError:
+            ...
+        return template
+
     def log_status(self, last_logs: list):
         self.cid.reload()
-        self.logger.info(f'Container Status: {self.cid.status}')
-        resource_usage = self.client_lowlevel.stats(self.cid.id, stream=False)
-        self.logger.info(f'Container {self.cid.id} resource usage -- '
-                         f'CPU: {round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2)} '
-                         f'RAM: {round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2)} Mb '
-                         f'of {round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2)} Mb')
+        self.logger.info(self.container_stats)
         logs = self.client_lowlevel.logs(
             self.cid.id, stream=False, tail=100).decode(
             "utf-8",
