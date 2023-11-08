@@ -102,6 +102,7 @@ class DockerJob(Job):
                     last_logs.append(each)
         except NotFound:
             self.logger.info('Container terminated')
+            self.cid.attrs["State"] = "exited"
 
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         base_url = params.get("galloper_url") or params.get("GALLOPER_URL")
@@ -116,7 +117,7 @@ class DockerJob(Job):
             'time_to_sleep': time_to_sleep,
             'cpu': round(float(resource_usage["cpu_stats"]["cpu_usage"]["total_usage"]) / c.CPU_MULTIPLIER, 2),
             'memory_usage': round(float(resource_usage["memory_stats"]["usage"]) / (1024 * 1024), 2),
-            'memory_limit': round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2),               
+            'memory_limit': round(float(resource_usage["memory_stats"]["limit"]) / (1024 * 1024), 2),
         }
         headers = {'content-type': 'application/json'}
         if token:
@@ -195,7 +196,7 @@ class KubernetesJob(Job):
             'report_id': params['report_id'],
             'time_to_sleep': time_to_sleep,
             'job_type': job_type,
-            'stats': resource_usage                 
+            'stats': resource_usage
         }
         headers = {'content-type': 'application/json'}
         if token:
@@ -215,9 +216,9 @@ class KubernetesJob(Job):
                 container_limits = container.resources.limits
                 resource_usage.append({
                     'pod': pod.metadata.name,
-                    'cpu_limit': container_limits['cpu'], 
+                    'cpu_limit': container_limits['cpu'],
                     'memory_limit': container_limits['memory']})
-        return resource_usage  
+        return resource_usage
 
 class DockerClient(Client):
 
