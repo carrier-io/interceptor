@@ -16,6 +16,7 @@ from interceptor import ssl_support, constants as c
 
 ssl_support.init(c.SSL_CERTS)
 
+import ssl
 import signal
 from time import sleep, mktime
 from traceback import format_exc
@@ -23,7 +24,7 @@ from typing import List, Optional, Union, Iterable
 
 import boto3
 import requests
-from arbiter import Minion
+from arbiter import Minion, EventNode, RedisEventNode
 
 from interceptor.containers_backend import KubernetesClient, DockerClient, Job, KubernetesJob
 from interceptor.jobs_wrapper import JobsWrapper
@@ -33,11 +34,53 @@ from interceptor.post_processor import PostProcessor
 
 from interceptor.utils import build_api_url
 
+if c.ARBITER_RUNTIME == "rabbitmq":
+    ssl_context=None
+    ssl_server_hostname=None
+    #
+    if c.RABBIT_USE_SSL:
+        ssl_context = ssl.create_default_context()
+        if c.RABBIT_SSL_VERIFY is True:
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            ssl_context.check_hostname = True
+            ssl_context.load_default_certs()
+        else:
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+        ssl_server_hostname = c.RABBIT_HOST
+    #
+    event_node = EventNode(
+        host=c.RABBIT_HOST,
+        port=c.RABBIT_PORT,
+        user=c.RABBIT_USER,
+        password=c.RABBIT_PASSWORD,
+        vhost=c.VHOST,
+        event_queue="tasks",
+        hmac_key=None,
+        hmac_digest="sha512",
+        callback_workers=c.EVENT_NODE_WORKERS,
+        ssl_context=ssl_context,
+        ssl_server_hostname=ssl_server_hostname,
+        mute_first_failed_connections=10,
+    )
+elif c.ARBITER_RUNTIME == "redis":
+    event_node = RedisEventNode(
+        host=c.REDIS_HOST,
+        port=c.REDIS_PORT,
+        password=c.REDIS_PASSWORD,
+        event_queue=c.VHOST,
+        hmac_key=None,
+        hmac_digest="sha512",
+        callback_workers=c.EVENT_NODE_WORKERS,
+        mute_first_failed_connections=10,  # pylint: disable=C0301
+        use_ssl=c.REDIS_USE_SSL,
+    )
+else:
+    raise ValueError(f"Unsupported arbiter runtime: {c.ARBITER_RUNTIME}")
+
 app = Minion(
-    host=c.RABBIT_HOST, port=c.RABBIT_PORT,
-    user=c.RABBIT_USER, password=c.RABBIT_PASSWORD,
-    queue=c.QUEUE_NAME, vhost=c.VHOST,
-    use_ssl=c.RABBIT_USE_SSL, ssl_verify=c.RABBIT_SSL_VERIFY
+    event_node=event_node,
+    queue=c.QUEUE_NAME
 )
 
 stop_task = False

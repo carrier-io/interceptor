@@ -52,12 +52,21 @@ STRIP_HEADERS = ["content-length"]
 
 
 SSL_CERTS = environ.get('SSL_CERTS', '')
+ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
+EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
+
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
 RABBIT_HOST = environ.get('RABBIT_HOST', 'localhost')
-RABBIT_PORT = environ.get('RABBIT_PORT', '5672')
+RABBIT_PORT = int(environ.get('RABBIT_PORT', '5672'))
 RABBIT_USE_SSL = environ.get("RABBIT_USE_SSL", "").lower() in ["true", "yes"]
 RABBIT_SSL_VERIFY = environ.get("RABBIT_SSL_VERIFY", "").lower() in ["true", "yes"]
+
+REDIS_HOST = environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(environ.get('REDIS_PORT', '6379'))
+REDIS_PASSWORD = environ.get('REDIS_PASSWORD', '')
+REDIS_USE_SSL = environ.get("REDIS_USE_SSL", "").lower() in ["true", "yes"]
+
 QUEUE_NAME = environ.get('QUEUE_NAME', "default")
 CPU_CORES = environ.get('CPU_CORES', 2)
 VHOST = environ.get('VHOST', 'carrier')
