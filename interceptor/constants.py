@@ -54,6 +54,7 @@ STRIP_HEADERS = ["content-length"]
 SSL_CERTS = environ.get('SSL_CERTS', '')
 ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
 EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
+TASK_NODE_MP_CONTEXT = environ.get('TASK_NODE_MP_CONTEXT', 'fork')
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')

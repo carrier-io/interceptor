@@ -82,6 +82,7 @@ app = Minion(
     event_node=event_node,
     queue=c.QUEUE_NAME
 )
+app.raw_task_node.multiprocessing_context = c.TASK_NODE_MP_CONTEXT
 
 stop_task = False
 
