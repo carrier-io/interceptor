@@ -27,5 +27,7 @@ stopasgroup=true
 
 
 def main():
-    with open('/etc/interceptor.conf', 'w') as f:
+    import os
+    supervisor_conf_path = os.environ.get("SUPERVISOR_CONF_PATH", "/etc/interceptor.conf")
+    with open(supervisor_conf_path, 'w') as f:
         f.write(interceptor_conf)

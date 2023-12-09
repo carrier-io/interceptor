@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 superconf
-supervisord --configuration /etc/interceptor.conf
+supervisord --configuration "${SUPERVISOR_CONF_PATH:-/etc/interceptor.conf}"
