@@ -74,12 +74,28 @@ class LambdaExecutor:
 
         integrations = self.event.get("integration") or self.event.get("integrations")
 
-        try:
-            cloud_settings = integrations["clouds"]["kubernetes"]
-        except (TypeError, KeyError):
-            log, stats = self.execute_in_docker(container_name)
-        else:
+        if c.EXECUTOR_RUNTIME == "kubernetes":
+            with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r", encoding="utf-8") as file:
+                token = file.read().strip()
+            #
+            with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r", encoding="utf-8") as file:
+                namespace = file.read().strip()
+            #
+            cloud_settings = {
+                "hostname": "kubernetes.default.svc",
+                "secure_connection": False,
+                "k8s_token": token,
+                "namespace": namespace,
+            }
+            #
             log, stats = self.execute_in_kubernetes(container_name, cloud_settings)
+        else:
+            try:
+                cloud_settings = integrations["clouds"]["kubernetes"]
+            except (TypeError, KeyError):
+                log, stats = self.execute_in_docker(container_name)
+            else:
+                log, stats = self.execute_in_kubernetes(container_name, cloud_settings)
 
         if container_name == "lambda:python3.7":
             results = re.findall(r'({.+?})', log)[-1]
