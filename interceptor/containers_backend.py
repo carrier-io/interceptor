@@ -163,7 +163,7 @@ class KubernetesJob(Job):
                     self.logger.warning("Waiting for pod to start")
                     return False
             #
-            self.logger.error(f"Error while checking job status")
+            self.logger.error(f"Error while checking job status: {exc}")
             return True
         else:
             if api_response.status.succeeded == api_response.spec.completions:
