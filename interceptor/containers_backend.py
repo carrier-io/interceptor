@@ -157,7 +157,7 @@ class KubernetesJob(Job):
                 namespace=self.namespace
             )
         except ApiException as exc:
-            if "PodInitializing" in exc.body:
+            if "PodInitializing" in str(exc.body):
                 if self.pod_init_wait_cycles:
                     self.pod_init_wait_cycles -= 1
                     self.logger.warning("Waiting for pod to start")
