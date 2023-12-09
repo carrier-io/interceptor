@@ -82,7 +82,7 @@ class LambdaExecutor:
                 namespace = file.read().strip()
             #
             cloud_settings = {
-                "hostname": "kubernetes.default.svc",
+                "hostname": "https://kubernetes.default.svc",
                 "secure_connection": False,
                 "k8s_token": token,
                 "namespace": namespace,
