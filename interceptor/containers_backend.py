@@ -147,8 +147,6 @@ class KubernetesJob(Job):
         self.api_client = api_client
         self.batch_v1 = client.BatchV1Api(api_client)
         self.core_api = client.CoreV1Api(api_client)
-        #
-        self.pod_init_wait_cycles = 60  # 5 mins in 5 sec intervals
 
     def is_finished(self):
         try:
@@ -157,12 +155,6 @@ class KubernetesJob(Job):
                 namespace=self.namespace
             )
         except ApiException as exc:
-            if "PodInitializing" in str(exc.body):
-                if self.pod_init_wait_cycles:
-                    self.pod_init_wait_cycles -= 1
-                    self.logger.warning("Waiting for pod to start")
-                    return False
-            #
             self.logger.error(f"Error while checking job status: {exc}")
             return True
         else:
