@@ -151,6 +151,8 @@ class LambdaExecutor:
         logs = []
         job.log_status(logs)
         stats = {'kubernetes_stats': job.collect_resource_usage()}
+        if c.K8S_STOP_JOBS:
+            job.stop_job()
         return "".join(logs), stats
 
     def remove_volume(self, volume, attempts: int = 3) -> None:

@@ -358,6 +358,34 @@ class KubernetesClient(Client):
             mount_path="/tmp",
         )
 
+        task_volume_mounts = [
+            client.V1VolumeMount(
+                name="shared-data",
+                mount_path="/var/task"
+            )
+        ]
+
+        job_volumes = [
+            V1Volume(
+                name="shared-data",
+                empty_dir=client.V1EmptyDirVolumeSource()
+            )
+        ]
+
+        if c.K8S_MOUNT_TMP:
+            task_volume_mounts.append(
+                client.V1VolumeMount(
+                    name="tmp-data",
+                    mount_path="/tmp"
+                )
+            )
+            job_volumes.append(
+                V1Volume(
+                    name="tmp-data",
+                    empty_dir=client.V1EmptyDirVolumeSource()
+                )
+            )
+
         download_task = client.V1Container(
             name="wget",
             image="busybox:latest",
@@ -392,10 +420,7 @@ class KubernetesClient(Client):
                 limits={"cpu": "1000m", "memory": "1G"},
                 requests={"cpu": "1000m", "memory": "1G"},
             ),
-            volume_mounts=[client.V1VolumeMount(
-                name="shared-data",
-                mount_path="/var/task"
-            )],
+            volume_mounts=task_volume_mounts,
             env=[V1EnvVar(key, str(value)) for key, value in environment.items()]
         )
 
@@ -411,11 +436,7 @@ class KubernetesClient(Client):
                         init_containers=[download_task, unzip_task],
                         restart_policy="Never",
                         automount_service_account_token=False,
-                        volumes=[
-                            V1Volume(
-                                name="shared-data",
-                                empty_dir=client.V1EmptyDirVolumeSource()
-                            )]
+                        volumes=job_volumes
                     ),
                 ),
                 backoff_limit=3,

@@ -56,6 +56,8 @@ ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
 EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
 TASK_NODE_MP_CONTEXT = environ.get('TASK_NODE_MP_CONTEXT', 'fork')
 EXECUTOR_RUNTIME = environ.get('EXECUTOR_RUNTIME', 'default')
+K8S_MOUNT_TMP = environ.get("K8S_MOUNT_TMP", "").lower() in ["true", "yes"]
+K8S_STOP_JOBS = environ.get("K8S_STOP_JOBS", "").lower() in ["true", "yes"]
 
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
