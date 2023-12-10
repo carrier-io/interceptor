@@ -97,7 +97,7 @@ class LambdaExecutor:
             else:
                 log, stats = self.execute_in_kubernetes(container_name, cloud_settings)
 
-        if container_name == "lambda:python3.7":
+        if container_name.startswith("lambda:python"):
             results = re.findall(r'({.+?})', log)[-1]
         else:
             # TODO: magic of 2 enters is very flaky, Need to think on how to workaround, probably with specific logging
