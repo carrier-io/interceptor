@@ -3,8 +3,6 @@ from typing import Iterable
 
 from interceptor.constants import LOKI_HOST, LOKI_PORT, LOG_LEVEL
 
-logger = logging.getLogger("interceptor")
-
 
 if LOKI_HOST:
     from multiprocessing import Queue
@@ -17,13 +15,16 @@ if LOKI_HOST:
         version="1",
     )
 
+    logger = logging.getLogger("interceptor")
     logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
     try:
         logger.addHandler(handler)
     except ValueError as exc:
         logger.error("Can't connect to loki")
 else:
-    logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+    from centry_loki import log
+    log.init(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
+    logger = log
 
 
 def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:
