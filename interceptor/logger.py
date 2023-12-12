@@ -24,7 +24,7 @@ if LOKI_HOST:
 else:
     from centry_loki import log
     log.init(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
-    logger = log
+    logger = logging.getLogger("interceptor")
 
 
 def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:
