@@ -27,6 +27,8 @@ if LOKI_HOST:
 def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:
     from centry_loki import log_loki
     try:
+        if not LOKI_HOST:
+            raise KeyError("Stub: loki is disabled")
         context = {
             "url": f"{LOKI_HOST.replace('https://', 'http://')}:"
                    f"{LOKI_PORT}/loki/api/v1/push",
