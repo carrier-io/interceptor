@@ -22,6 +22,8 @@ if LOKI_HOST:
         logger.addHandler(handler)
     except ValueError as exc:
         logger.error("Can't connect to loki")
+else:
+    logger.setLevel(logging.INFO if LOG_LEVEL == 'info' else logging.DEBUG)
 
 
 def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:
