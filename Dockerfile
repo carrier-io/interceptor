@@ -18,7 +18,7 @@ RUN pip install requests
 RUN python setup.py install
 RUN rm -rf interceptor requirements.txt setup.py
 RUN pip install git+https://github.com/carrier-io/arbiter.git@tasknode
-RUN pip install git+https://github.com/carrier-io/loki_logger.git
+RUN pip install git+https://github.com/centry-core/centry_logging.git
 
 SHELL ["/bin/bash", "-c"]
 
