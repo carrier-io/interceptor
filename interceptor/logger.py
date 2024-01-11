@@ -51,6 +51,7 @@ def get_interceptor_logger():
         new_logger.setLevel(logging.INFO if c.LOG_LEVEL == "info" else logging.DEBUG)
         new_logger.addHandler(handler)
     except:  # pylint: disable=W0702
+        log.exception("Failed to create interceptor logger, using default")
         new_logger = logging.getLogger("interceptor")
     #
     return new_logger
@@ -85,7 +86,7 @@ def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable =
         new_logger.setLevel(logging.INFO)
         new_logger.addHandler(handler)
     except:  # pylint: disable=W0702
-        log.warning("Failed setup logger for test. Used default logger")
+        log.exception("Failed setup logger for test. Used default logger")
         log.update_secrets(stop_words)
         new_logger = logging.getLogger("centry_logger")
     #
