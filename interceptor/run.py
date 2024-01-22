@@ -24,7 +24,7 @@ from typing import List, Optional, Union, Iterable
 
 import boto3
 import requests
-from arbiter import Minion, EventNode, RedisEventNode
+from arbiter import Minion, EventNode, RedisEventNode, SocketIOEventNode
 
 from interceptor.containers_backend import KubernetesClient, DockerClient, Job, KubernetesJob
 from interceptor.jobs_wrapper import JobsWrapper
@@ -74,6 +74,17 @@ elif c.ARBITER_RUNTIME == "redis":
         callback_workers=c.EVENT_NODE_WORKERS,
         mute_first_failed_connections=10,  # pylint: disable=C0301
         use_ssl=c.REDIS_USE_SSL,
+    )
+elif c.ARBITER_RUNTIME == "socketio":
+    event_node = SocketIOEventNode(
+        url=c.SIO_URL,
+        password=c.SIO_PASSWORD,
+        room=c.VHOST,
+        hmac_key=None,
+        hmac_digest="sha512",
+        callback_workers=c.EVENT_NODE_WORKERS,
+        mute_first_failed_connections=10,  # pylint: disable=C0301
+        ssl_verify=c.SIO_SSL_VERIFY,
     )
 else:
     raise ValueError(f"Unsupported arbiter runtime: {c.ARBITER_RUNTIME}")

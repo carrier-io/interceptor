@@ -71,6 +71,10 @@ REDIS_PORT = int(environ.get('REDIS_PORT', '6379'))
 REDIS_PASSWORD = environ.get('REDIS_PASSWORD', '')
 REDIS_USE_SSL = environ.get("REDIS_USE_SSL", "").lower() in ["true", "yes"]
 
+SIO_URL = environ.get('SIO_URL', '')
+SIO_PASSWORD = environ.get('SIO_PASSWORD', '')
+SIO_SSL_VERIFY = environ.get("SIO_SSL_VERIFY", "").lower() in ["true", "yes"]
+
 QUEUE_NAME = environ.get('QUEUE_NAME', "default")
 CPU_CORES = environ.get('CPU_CORES', 2)
 VHOST = environ.get('VHOST', 'carrier')
