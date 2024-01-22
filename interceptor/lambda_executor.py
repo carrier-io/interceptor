@@ -119,7 +119,7 @@ class LambdaExecutor:
         results_url = build_api_url('tasks', 'results', mode=self.mode, api_version=self.api_version)
         res = requests.put(
             f'{self.galloper_url}{results_url}/{self.task["project_id"]}?task_result_id={task_result_id}',
-            headers=self.api_headers, data=dumps(data)
+            headers=self.api_headers, data=dumps(data), verify=c.SSL_VERIFY
         )
         self.logger.info(f'Created task_results: {res.status_code, res.text}')
 
@@ -128,7 +128,7 @@ class LambdaExecutor:
         #     for each in self.event:
         #         each['result'] = results
         #     endpoint = f"/api/v1/task/{self.task['project_id']}/{self.task['callback']}?exec=True"
-        #     self.task = requests.get(f"{self.galloper_url}/{endpoint}", headers=self.api_headers).json()
+        #     self.task = requests.get(f"{self.galloper_url}/{endpoint}", headers=self.api_headers, verify=c.SSL_VERIFY).json()
         #     self.execute_lambda()
         self.logger.info('Done.')
 
@@ -247,7 +247,7 @@ class LambdaExecutor:
         download_path.mkdir()
         headers = {'Authorization': f'bearer {self.token}'}
         self.logger.info('Downloading artifact: %s', self.artifact_url)
-        r = requests.get(self.artifact_url, allow_redirects=True, headers=headers)
+        r = requests.get(self.artifact_url, allow_redirects=True, headers=headers, verify=c.SSL_VERIFY)
         self.logger.info('Artifact dl status: %s', r.status_code)
         with open(download_path.joinpath(lambda_id), 'wb') as file_data:
             file_data.write(r.content)

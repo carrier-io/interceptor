@@ -52,6 +52,7 @@ STRIP_HEADERS = ["content-length"]
 
 
 SSL_CERTS = environ.get('SSL_CERTS', '')
+SSL_VERIFY = environ.get("SSL_VERIFY", "").lower() in ["true", "yes"]
 ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
 EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
 TASK_NODE_MP_CONTEXT = environ.get('TASK_NODE_MP_CONTEXT', 'fork')

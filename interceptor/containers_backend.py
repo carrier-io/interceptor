@@ -122,7 +122,7 @@ class DockerJob(Job):
         headers = {'content-type': 'application/json'}
         if token:
             headers['Authorization'] = f'bearer {token}'
-        requests.put(url, json=data, headers=headers)
+        requests.put(url, json=data, headers=headers, verify=c.SSL_VERIFY)
 
     @property
     def status(self):
@@ -201,7 +201,7 @@ class KubernetesJob(Job):
         headers = {'content-type': 'application/json'}
         if token:
             headers['Authorization'] = f'bearer {token}'
-        requests.put(url, json=data, headers=headers)
+        requests.put(url, json=data, headers=headers, verify=c.SSL_VERIFY)
 
     def collect_resource_usage(self):
         resource_usage = []
@@ -286,7 +286,7 @@ class KubernetesClient(Client):
         }
         headers = {'content-type': 'application/json',
                    'Authorization': f'bearer {bearer_token}'}
-        res = requests.post(url, json=data, headers=headers)
+        res = requests.post(url, json=data, headers=headers, verify=c.SSL_VERIFY)
         res.raise_for_status()
         capacity = res.json()
         return capacity

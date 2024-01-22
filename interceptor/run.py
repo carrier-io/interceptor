@@ -404,7 +404,7 @@ def main():
             if c.TOKEN:
                 headers['Authorization'] = f'bearer {c.TOKEN}'
             try:
-                requests.post(url, json=data, headers=headers)
+                requests.post(url, json=data, headers=headers, verify=c.SSL_VERIFY)
             except requests.exceptions.ConnectionError:
                 print('FAILED TO REGISTER IN PYLON', url, data)
     app.run(workers=int(c.CPU_CORES))
