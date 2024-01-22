@@ -52,6 +52,7 @@ STRIP_HEADERS = ["content-length"]
 
 
 SSL_CERTS = environ.get('SSL_CERTS', '')
+SSL_VERIFY = environ.get("SSL_VERIFY", "").lower() in ["true", "yes"]
 RABBIT_USER = environ.get('RABBIT_USER', 'user')
 RABBIT_PASSWORD = environ.get('RABBIT_PASSWORD', 'password')
 RABBIT_HOST = environ.get('RABBIT_HOST', 'localhost')
