@@ -300,6 +300,19 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         centry_logger.error("Job Type not found")
         return
 
+    if "host" not in kubernetes_settings:
+        with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r", encoding="utf-8") as file:
+            token = file.read().strip()
+        #
+        with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r", encoding="utf-8") as file:
+            namespace = file.read().strip()
+        #
+        kubernetes_settings["host"] = "https://kubernetes.default.svc"
+        kubernetes_settings["token"] = token
+        kubernetes_settings["namespace"] = namespace
+        kubernetes_settings["secure_connection"] = False
+        # kubernetes_settings["scaling_cluster"] = False
+
     kubernetes_settings['mode'] = mode
     kubernetes_settings['logger'] = centry_logger
     client = KubernetesClient(**kubernetes_settings)
