@@ -311,7 +311,7 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         kubernetes_settings["token"] = token
         kubernetes_settings["namespace"] = namespace
         kubernetes_settings["secure_connection"] = False
-        # kubernetes_settings["scaling_cluster"] = False
+        kubernetes_settings["scaling_cluster"] = True
 
     kubernetes_settings['mode'] = mode
     kubernetes_settings['logger'] = centry_logger
