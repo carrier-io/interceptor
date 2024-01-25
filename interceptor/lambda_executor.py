@@ -146,10 +146,14 @@ class LambdaExecutor:
         job = client.run_lambda(container_name, self.token, self.env_vars, self.artifact_url,
                                 self.command)
 
+        logs = []
         while not job.is_finished():
             sleep(5)
-        logs = []
-        job.log_status(logs)
+            try:
+                job.log_status(logs)
+            except Exception as exc:
+                self.logger.warning(f"Fetching logs failed: {exc}")
+
         stats = {'kubernetes_stats': job.collect_resource_usage()}
         if c.K8S_STOP_JOBS:
             job.stop_job()
