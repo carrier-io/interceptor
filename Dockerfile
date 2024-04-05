@@ -7,6 +7,10 @@ RUN apk update && apk add --no-cache supervisor docker docker-compose git bash c
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
 
+RUN set -x \
+  && update-alternatives --install /usr/bin/cc cc /usr/bin/clang 9999 \
+  && update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 9999
+
 ADD setup.py /tmp/setup.py
 ADD requirements.txt /tmp/requirements.txt
 COPY interceptor /tmp/interceptor
