@@ -3,7 +3,7 @@ FROM python:3.11-alpine
 #ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
 #ENV GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
 
-RUN apk update && apk add --no-cache supervisor docker docker-compose git bash g++
+RUN apk update && apk add --no-cache supervisor docker docker-compose git bash clang linux-headers
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
 
