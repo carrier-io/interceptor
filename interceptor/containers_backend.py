@@ -27,7 +27,7 @@ class Client(ABC):
     @abstractmethod
     def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
             auto_remove, user, command=None, mounts=None
-    ):
+            ):
         raise NotImplementedError
 
     @abstractmethod
@@ -52,7 +52,6 @@ class Job(ABC):
     @abstractmethod
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         raise NotImplementedError
-
 
 
 class DockerJob(Job):
@@ -338,15 +337,19 @@ class KubernetesClient(Client):
             auto_remove=None, user=None, command="", mounts=None
     ) -> KubernetesJob:
 
-        if not self.scaling_cluster:
-            base_url = environment.get("galloper_url") or environment.get("GALLOPER_URL")
-            capacity = self.get_capacity(base_url, environment["token"])
-            if self.jobs_count > capacity["pods"]:
-                raise ValueError("Not enough runners")
-            required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
-            required_memory = int(mem_limit[:-1]) * self.jobs_count
-            if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
-                raise ValueError("Not enough capacity in cluster to run test")
+        try:
+            if not self.scaling_cluster:
+                base_url = environment.get("galloper_url") or environment.get("GALLOPER_URL")
+                capacity = self.get_capacity(base_url, environment["token"])
+                if self.jobs_count > capacity["pods"]:
+                    raise ValueError("Not enough runners")
+                required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
+                required_memory = int(mem_limit[:-1]) * self.jobs_count
+                if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
+                    raise ValueError("Not enough capacity in cluster to run test")
+        except Exception as e:
+            self.logger.info("Failed to check capacity")
+            self.logger.info(e)
 
         self.create_job(image, name, environment, command=command,
                         nano_cpus=nano_cpus, mem_limit=mem_limit)
