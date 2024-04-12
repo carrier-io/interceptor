@@ -86,6 +86,8 @@ class PostProcessor:
                     "report_id": self.report_id,
                     "integrations": self.integration, "exec_params": self.exec_params}
 
+
+        post_processor_container = environ.get("post_processor_container", "getcarrier/performance_results_processing:beta-1.0")
         if kubernetes_settings := json.loads(
                 self.integration).get("clouds", {}).get("kubernetes", {}):
 
@@ -99,7 +101,7 @@ class PostProcessor:
                 "mode": self.mode
             })
             job = client.run(
-                "getcarrier/performance_results_processing:beta-1.0",
+                post_processor_container,
                 name="post-processing",
                 environment=env_vars,
                 command="",
@@ -109,7 +111,7 @@ class PostProcessor:
         else:
             client = DockerClient(self.logger)
 
-            job = client.run("getcarrier/performance_results_processing:beta-1.0",
+            job = client.run(post_processor_container,
                              stderr=True, remove=True, detach=True,
                              environment=env_vars)
 

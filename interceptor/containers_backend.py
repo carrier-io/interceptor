@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from uuid import uuid4
+from os import environ
 
 import docker
 import requests
@@ -145,6 +146,12 @@ class DockerClient(Client):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.docker = docker.from_env()
+        # login
+        docker_user = environ.get('docker_user', "")
+        docker_password = environ.get('docker_password', "")
+        docker_registry_url = environ.get('docker_registry_url', "")
+        if all([docker_user, docker_password, docker_registry_url]):
+            client.login(username=docker_user, password=docker_password, registry=docker_registry_url)
 
     def info(self):
         return self.docker.info()
