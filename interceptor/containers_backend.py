@@ -151,7 +151,7 @@ class DockerClient(Client):
         docker_password = environ.get('docker_password', "")
         docker_registry_url = environ.get('docker_registry_url', "")
         if all([docker_user, docker_password, docker_registry_url]):
-            client.login(username=docker_user, password=docker_password, registry=docker_registry_url)
+            self.docker.login(username=docker_user, password=docker_password, registry=docker_registry_url)
 
     def info(self):
         return self.docker.info()
