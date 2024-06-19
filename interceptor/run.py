@@ -99,6 +99,7 @@ stop_task = False
 
 
 def sigterm_handler(signal, frame):
+    logger.info("sigterm_handler got SIGTERM signal")
     global stop_task
     stop_task = True
 
@@ -110,6 +111,7 @@ signal.signal(signal.SIGTERM, sigterm_handler)
 def terminate_gcp_instances(
         service_account_info: dict, project: str, zone: str, instances: List[str]
 ):
+    signal.signal(signal.SIGTERM, sigterm_handler)
     from google.cloud import compute_v1
     from google.oauth2.service_account import Credentials
     # https://cloud.google.com/compute/docs/reference/rest/v1/instances/delete
@@ -131,6 +133,7 @@ def terminate_gcp_instances(
 def terminate_ec2_instances(
         aws_access_key_id, aws_secret_access_key, region_name, fleet_id, launch_template_id
 ):
+    signal.signal(signal.SIGTERM, sigterm_handler)
     try:
         ec2 = boto3.client('ec2', aws_access_key_id=aws_access_key_id,
                            aws_secret_access_key=aws_secret_access_key,
@@ -167,6 +170,7 @@ def post_process(
         manual_run: bool = False,
         **kwargs
 ) -> str:
+    signal.signal(signal.SIGTERM, sigterm_handler)
     pp = PostProcessor(
         galloper_url=galloper_url,
         project_id=project_id,
@@ -213,6 +217,7 @@ def browsertime(
         galloper_url, project_id, token, bucket, filename, url, view='1920x1080',
         tests='1', headers=None, browser="", *args, **kwargs
 ):
+    signal.signal(signal.SIGTERM, sigterm_handler)
     try:
         if not headers:
             headers = {}
@@ -253,6 +258,7 @@ def browsertime(
 def execute_lambda(task: dict, event: Union[dict, list],
                    logger_stop_words: Iterable = tuple(),
                    **kwargs) -> str:
+    signal.signal(signal.SIGTERM, sigterm_handler)
     centry_logger = get_centry_logger(
         hostname=task.get('task_name'),
         labels={
@@ -280,6 +286,7 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
                   mode: str = 'default', logger_stop_words: Iterable = tuple(),
                   **kwargs
                   ):
+    signal.signal(signal.SIGTERM, sigterm_handler)
     try:
         labels = {
             "project": execution_params['project_id'],
@@ -330,7 +337,8 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
         if stop_task:
             stop_task = False
             job.stop_job()
-            return
+            centry_logger.info(f"Aborted: {job_type} on {container} with name {job_name}")
+            exit(0)
         try:
             job.log_status(last_logs)
             # job.send_resource_usage(job_type=job_type, params=execution_params,
@@ -344,6 +352,7 @@ def execute_kuber(job_type, container, execution_params, job_name, kubernetes_se
 def execute_job(job_type, container, execution_params, job_name,
                 logger_stop_words: Iterable = tuple(),
                 **kwargs):
+    signal.signal(signal.SIGTERM, sigterm_handler)
     try:
         labels = {
             "project": execution_params['project_id'],
