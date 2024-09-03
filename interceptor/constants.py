@@ -26,7 +26,7 @@ REMOVE_CONTAINERS = True if environ.get("REMOVE_CONTAINERS", "True") == "True" e
 PYLON_URL = environ.get('PYLON_URL')
 LAMBDA_DOCKER_NETWORK = environ.get("LAMBDA_DOCKER_NETWORK", "").strip()
 LAMBDA_DOCKER_NETWORK_MODE = environ.get("LAMBDA_DOCKER_NETWORK_MODE", "").strip()
-EXTRA_HOSTS = environ.get("EXTRA_HOSTS", "").strip() #{'stagev2.palmettostatearmory.com': '10.237.20.73'}
+EXTRA_HOSTS = environ.get("EXTRA_HOSTS", "").strip()
 
 
 NAME_CONTAINER_MAPPING = {
