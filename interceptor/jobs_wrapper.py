@@ -126,7 +126,11 @@ class JobsWrapper(object):
         logger.info(f"Staring {container} with name {name}")
         logger.info(f"Command {execution_params['cmd']}")
         logger.info(f"env_vars: {env_vars}")
-        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit,
+        try:
+            extra_hosts = json.loads(c.EXTRA_HOSTS)
+        except:
+            extra_hosts = {}
+        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit, extra_hosts=extra_hosts,
                           environment=env_vars, tty=True, detach=True,
                           remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                           user='0:0', command=f"{execution_params['cmd']}",
@@ -178,7 +182,11 @@ class JobsWrapper(object):
         logger.info(f"Staring {container} with name {name}")
         logger.info(f"Command {execution_params['cmd']}")
         logger.info(f"env_vars: {env_vars}")
-        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit,
+        try:
+            extra_hosts = json.loads(c.EXTRA_HOSTS)
+        except:
+            extra_hosts = {}
+        return client.run(container, name=name, nano_cpus=nano_cpus, mem_limit=mem_limit, extra_hosts=extra_hosts,
                           environment=env_vars, tty=True, detach=True,
                           remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                           user='0:0')
@@ -219,9 +227,13 @@ class JobsWrapper(object):
                         docker.types.Mount(target=value, source=key, type='bind'))
 
         observer_command = execution_params['cmd']
+        try:
+            extra_hosts = json.loads(c.EXTRA_HOSTS)
+        except:
+            extra_hosts = {}
 
         return client.run(container, name=observer_container_name,
-                          nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA,
+                          nano_cpus=c.CONTAINER_CPU_QUOTA, mem_limit=c.CONTAINER_MEMORY_QUOTA, extra_hosts=extra_hosts,
                           environment=env_vars, tty=True, detach=True,
                           remove=c.REMOVE_CONTAINERS, auto_remove=c.REMOVE_CONTAINERS,
                           user='0:0', command=observer_command, mounts=docker_mounts)
