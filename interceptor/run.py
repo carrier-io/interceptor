@@ -34,6 +34,10 @@ from interceptor.post_processor import PostProcessor
 
 from interceptor.utils import build_api_url
 
+import websocket  # pylint: disable=E0401
+import engineio.client  # pylint: disable=E0401
+engineio.client.websocket = websocket
+
 if c.ARBITER_RUNTIME == "rabbitmq":
     ssl_context=None
     ssl_server_hostname=None

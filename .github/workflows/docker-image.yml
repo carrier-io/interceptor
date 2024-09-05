@@ -2,11 +2,11 @@ name: Build and push Docker images
 
 on:
   push:
-    branches: [ tasknode ]
+    branches: [ tasknode_debug ]
   workflow_dispatch:
     inputs:
         docker_tag:
-          default: "getcarrier/interceptor:tasknode"
+          default: "getcarrier/interceptor:tasknode_debug"
           description: "Docker image name and tag"
           required: true
 
@@ -35,7 +35,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          tags: ${{ inputs.docker_tag || 'getcarrier/interceptor:tasknode' }}
+          tags: ${{ inputs.docker_tag || 'getcarrier/interceptor:tasknode_debug' }}
           builder: ${{ steps.buildx.outputs.name }}
           platforms: linux/amd64,linux/arm64
           push: true

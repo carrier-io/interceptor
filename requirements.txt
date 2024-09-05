@@ -12,3 +12,4 @@ google-cloud-compute==1.11.0
 google-auth==2.21.0
 grpcio-status==1.49.1
 protobuf==4.21.12
+python-socketio[client]==5.11.1

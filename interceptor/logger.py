@@ -29,68 +29,70 @@ from interceptor import constants as c
 
 def get_interceptor_logger():
     """ Get logger for interceptor """
-    log.init(logging.INFO if c.LOG_LEVEL == "info" else logging.DEBUG, force=True)
-    #
-    try:
-        handler = EventNodeLogHandler({
-            "event_node": {
-                "type": "RedisEventNode",
-                "host": c.REDIS_HOST,
-                "port": c.REDIS_PORT,
-                "password": c.REDIS_PASSWORD,
-                "event_queue": "centry_logs",
-                "use_ssl": c.REDIS_USE_SSL,
-            },
-            "labels": {
-                "application": "interceptor",
-            },
-        })
-        handler.setFormatter(state.formatter)
-        #
-        new_logger = logging.getLogger("interceptor")
-        new_logger.setLevel(logging.INFO if c.LOG_LEVEL == "info" else logging.DEBUG)
-        new_logger.addHandler(handler)
-    except:  # pylint: disable=W0702
-        log.exception("Failed to create interceptor logger, using default")
-        new_logger = logging.getLogger("interceptor")
-    #
-    return new_logger
+    return logging.getLogger("interceptor")
+    # log.init(logging.INFO if c.LOG_LEVEL == "info" else logging.DEBUG, force=True)
+    # #
+    # try:
+    #     handler = EventNodeLogHandler({
+    #         "event_node": {
+    #             "type": "RedisEventNode",
+    #             "host": c.REDIS_HOST,
+    #             "port": c.REDIS_PORT,
+    #             "password": c.REDIS_PASSWORD,
+    #             "event_queue": "centry_logs",
+    #             "use_ssl": c.REDIS_USE_SSL,
+    #         },
+    #         "labels": {
+    #             "application": "interceptor",
+    #         },
+    #     })
+    #     handler.setFormatter(state.formatter)
+    #     #
+    #     new_logger = logging.getLogger("interceptor")
+    #     new_logger.setLevel(logging.INFO if c.LOG_LEVEL == "info" else logging.DEBUG)
+    #     new_logger.addHandler(handler)
+    # except:  # pylint: disable=W0702
+    #     log.exception("Failed to create interceptor logger, using default")
+    #     new_logger = logging.getLogger("interceptor")
+    # #
+    # return new_logger
 
 
 def get_centry_logger(hostname: str, labels: dict = None, stop_words: Iterable = tuple()) -> logging.Logger:  # pylint: disable=C0301
     """ Get logger for test """
-    if labels is None:
-        labels = {}
-    else:
-        labels = labels.copy()
-    #
-    labels["hostname"] = hostname
-    #
-    try:
-        formatter = SecretFormatter(secrets=stop_words)
-        #
-        handler = EventNodeLogHandler({
-            "event_node": {
-                "type": "RedisEventNode",
-                "host": c.REDIS_HOST,
-                "port": c.REDIS_PORT,
-                "password": c.REDIS_PASSWORD,
-                "event_queue": "centry_logs",
-                "use_ssl": c.REDIS_USE_SSL,
-            },
-            "labels": labels,
-        })
-        handler.setFormatter(formatter)
-        #
-        new_logger = logging.getLogger("centry_logger")
-        new_logger.setLevel(logging.INFO)
-        new_logger.addHandler(handler)
-    except:  # pylint: disable=W0702
-        log.exception("Failed setup logger for test. Used default logger")
-        log.update_secrets(stop_words)
-        new_logger = logging.getLogger("centry_logger")
-    #
-    return new_logger
+    return logging.getLogger("centry_logger")
+    # if labels is None:
+    #     labels = {}
+    # else:
+    #     labels = labels.copy()
+    # #
+    # labels["hostname"] = hostname
+    # #
+    # try:
+    #     formatter = SecretFormatter(secrets=stop_words)
+    #     #
+    #     handler = EventNodeLogHandler({
+    #         "event_node": {
+    #             "type": "RedisEventNode",
+    #             "host": c.REDIS_HOST,
+    #             "port": c.REDIS_PORT,
+    #             "password": c.REDIS_PASSWORD,
+    #             "event_queue": "centry_logs",
+    #             "use_ssl": c.REDIS_USE_SSL,
+    #         },
+    #         "labels": labels,
+    #     })
+    #     handler.setFormatter(formatter)
+    #     #
+    #     new_logger = logging.getLogger("centry_logger")
+    #     new_logger.setLevel(logging.INFO)
+    #     new_logger.addHandler(handler)
+    # except:  # pylint: disable=W0702
+    #     log.exception("Failed setup logger for test. Used default logger")
+    #     log.update_secrets(stop_words)
+    #     new_logger = logging.getLogger("centry_logger")
+    # #
+    # return new_logger
 
 
 logger = get_interceptor_logger()
