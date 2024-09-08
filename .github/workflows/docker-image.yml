@@ -37,5 +37,5 @@ jobs:
         with:
           tags: ${{ inputs.docker_tag || 'getcarrier/interceptor:tasknode_debug' }}
           builder: ${{ steps.buildx.outputs.name }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
