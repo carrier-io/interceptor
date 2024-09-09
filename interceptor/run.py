@@ -420,11 +420,8 @@ def main():
                 requests.post(url, json=data, headers=headers, verify=c.SSL_VERIFY)
             except requests.exceptions.ConnectionError:
                 print('FAILED TO REGISTER IN PYLON', url, data)
-    print("Before app.run")
     app.run(workers=int(c.CPU_CORES))
-    print("After app.run")
 
 
 if __name__ == '__main__':
-    print("Starting main method")
     main()
