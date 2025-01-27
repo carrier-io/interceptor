@@ -30,6 +30,8 @@ EXTRA_HOSTS = environ.get("EXTRA_HOSTS", "").strip()
 
 
 NAME_CONTAINER_MAPPING = {
+    "Python 3.11": 'lambda:python3.11',
+    "Python 3.10": 'lambda:python3.10',
     "Python 3.8": 'lambda:python3.8',
     "Python 3.7": 'lambda:python3.7',
     "Python 3.6": 'lambda:python3.6',
