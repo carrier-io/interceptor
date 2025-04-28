@@ -27,7 +27,7 @@ class Client(ABC):
     @abstractmethod
     def run(self, image: str, name, nano_cpus, mem_limit, environment, tty, detach, remove,
             auto_remove, user, command=None, mounts=None
-    ):
+            ):
         raise NotImplementedError
 
     @abstractmethod
@@ -52,7 +52,6 @@ class Job(ABC):
     @abstractmethod
     def send_resource_usage(self, job_type, params, time_to_sleep=None):
         raise NotImplementedError
-
 
 
 class DockerJob(Job):
@@ -154,8 +153,8 @@ class KubernetesJob(Job):
                 name=self.job_name,
                 namespace=self.namespace
             )
-        except ApiException:
-            self.logger.error(f"Error while checking job status")
+        except ApiException as exc:
+            self.logger.error(f"Error while checking job status: {exc}")
             return True
         else:
             if api_response.status.succeeded == api_response.spec.completions:
@@ -166,6 +165,7 @@ class KubernetesJob(Job):
         return False
 
     def stop_job(self):
+        self.logger.info(f"Stopping job {self.job_name} in namespace {self.namespace}")
         self.batch_v1.delete_namespaced_job(self.job_name, namespace=self.namespace,
                                             grace_period_seconds=15,
                                             propagation_policy="Foreground")
@@ -175,7 +175,7 @@ class KubernetesJob(Job):
             pods = self.core_api.list_namespaced_pod(
                 namespace=self.namespace, label_selector=f"job-name={self.job_name}")
         except ApiException as exc:
-            self.logger.warning(exc)
+            self.logger.warning(f"Error while listing pods: {exc}")
         else:
             for idx, pod in enumerate(pods.items):
                 pod_logs = self.core_api.read_namespaced_pod_log(
@@ -209,7 +209,7 @@ class KubernetesJob(Job):
             pods = self.core_api.list_namespaced_pod(
                 namespace=self.namespace, label_selector=f"job-name={self.job_name}")
         except ApiException as exc:
-            self.logger.warning(exc)
+            self.logger.warning(f"Error while collecting resource usage: {exc}")
         else:
             for idx, pod in enumerate(pods.items):
                 container = pod.spec.containers[0]
@@ -219,6 +219,7 @@ class KubernetesJob(Job):
                     'cpu_limit': container_limits['cpu'],
                     'memory_limit': container_limits['memory']})
         return resource_usage
+
 
 class DockerClient(Client):
 
@@ -230,6 +231,7 @@ class DockerClient(Client):
         return self.docker.info()
 
     def run(self, image: str, **kwargs):
+        self.logger.info(f"Running Docker container with image: {image} and kwargs: {kwargs}")
         container = self.docker.containers.run(image, **kwargs)
         return DockerJob(cid=container, logger=self.logger)
 
@@ -272,12 +274,14 @@ class KubernetesClient(Client):
         if not self.secure_connection:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+        self.logger.info(f"Prepared API client with host: {self.host} and secure_connection: {self.secure_connection}")
         return ApiClient(configuration)
 
     def get_capacity(self, url: str, bearer_token: str):
         kuber_url = build_api_url('kubernetes', 'get_available_resources', mode=self.mode,
                                   api_version=self.api_version)
-        url = f"{url}{kuber_url}"
+        fallback = {'cpu': 4, 'memory': 16, 'pods': 5}
+        url = f"{self.host}{kuber_url}"
         data = {
             "hostname": self.host,
             "k8s_token": {"value": self.token, "from_secrets": False},
@@ -286,16 +290,33 @@ class KubernetesClient(Client):
         }
         headers = {'content-type': 'application/json',
                    'Authorization': f'bearer {bearer_token}'}
-        res = requests.post(url, json=data, headers=headers, verify=c.SSL_VERIFY)
-        res.raise_for_status()
-        capacity = res.json()
+        try:
+            self.logger.info(f"Sending request to get capacity with URL: {url} and data: {data}")
+            res = requests.post(url, json=data, headers=headers, verify=c.SSL_VERIFY)
+            self.logger.info(f"Response status code: {res.status_code}")
+            if res.status_code == 403:
+                self.logger.warning("Access Denied")
+                return fallback
+            if res.status_code != 200:
+                self.logger.warning(f"Failed to get capacity, status code: {res.status_code}")
+                return fallback
+            res.raise_for_status()
+            capacity = res.json()
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Request failed: {e}")
+            capacity = fallback
+        except ValueError as e:
+            self.logger.error(f"Error parsing response JSON: {e}")
+            capacity = fallback
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+            capacity = fallback
+        self.logger.info(f"Received capacity: {capacity}")
         return capacity
 
-    def create_job(
-            self, image, name: str,
-            env_vars: dict, command: str,
-            nano_cpus, mem_limit
-    ):
+    def create_job(self, image, name: str, env_vars: dict, command: str, nano_cpus, mem_limit):
+        self.logger.info(
+            f"Creating Kubernetes job with image: {image}, name: {name}, env_vars: {env_vars}, command: {command}, nano_cpus: {nano_cpus}, mem_limit: {mem_limit}")
         container = client.V1Container(
             name=name.replace("_", "-"),
             image=image,
@@ -328,31 +349,49 @@ class KubernetesClient(Client):
             body=job,
             namespace=self.namespace,
         )
+        self.logger.info(f"Created Kubernetes job: {api_response}")
         return api_response
 
     def info(self):
         pass
 
     def run(self, image: str, name, nano_cpus, mem_limit, environment, tty=None,
-            detach=None, remove=None,
-            auto_remove=None, user=None, command="", mounts=None
-    ) -> KubernetesJob:
-
+            detach=None, remove=None, auto_remove=None, user=None, command="", mounts=None,
+            extra_hosts=None) -> KubernetesJob:
+        self.logger.info(
+            f"Running Kubernetes job with image: {image}, name: {name}, nano_cpus: {nano_cpus}, mem_limit: {mem_limit}, environment: {environment}, command: {command}")
         if not self.scaling_cluster:
             base_url = environment.get("galloper_url") or environment.get("GALLOPER_URL")
+            self.logger.info("KAREN before get_capacity")
+
             capacity = self.get_capacity(base_url, environment["token"])
             if self.jobs_count > capacity["pods"]:
+                self.logger.error("Not enough runners")
                 raise ValueError("Not enough runners")
+
+            required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
+            required_memory = int(mem_limit[:-1]) * self.jobs_count
+
+            self.logger.info(f"Jobs count: {self.jobs_count}")
+            self.logger.info(f"Cluster capacity: {capacity}")
+            self.logger.info(f"Required CPU: {required_cpu}, Required Memory: {required_memory}")
+
+            if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
+                self.logger.error("Not enough capacity in cluster to run test")
+                raise ValueError("Not enough capacity in cluster to run test")
+
             required_cpu = (nano_cpus / (NANO_TO_MILL_MULTIPLIER * 1000)) * self.jobs_count
             required_memory = int(mem_limit[:-1]) * self.jobs_count
             if required_cpu > capacity["cpu"] or required_memory > capacity["memory"]:
+                self.logger.error("Not enough capacity in cluster to run test")
                 raise ValueError("Not enough capacity in cluster to run test")
 
-        self.create_job(image, name, environment, command=command,
-                        nano_cpus=nano_cpus, mem_limit=mem_limit)
+        self.create_job(image, name, environment, command=command, nano_cpus=nano_cpus, mem_limit=mem_limit)
         return KubernetesJob(self.api_client, self.JOB_NAME, self.logger, self.namespace)
 
     def create_lambda_job(self, image, auth_token, environment, artifact_url, command):
+        self.logger.info(
+            f"Creating Lambda job with image: {image}, auth_token: {auth_token}, environment: {environment}, artifact_url: {artifact_url}, command: {command}")
         shared_volume_mount = client.V1VolumeMount(
             name="shared-data",
             mount_path="/tmp",
@@ -426,9 +465,12 @@ class KubernetesClient(Client):
             body=job,
             namespace=self.namespace,
         )
+        self.logger.info(f"Created Lambda job: {api_response}")
         return api_response
 
     def run_lambda(self, image, auth_token, environment, artifact_url, command):
+        # extend default timeout for lambda functions
+        environment["AWS_LAMBDA_FUNCTION_TIMEOUT"] = 36000
         self.JOB_NAME = f"lambda-job-{uuid4()}"
         self.create_lambda_job(image, auth_token, environment, artifact_url, command)
         return KubernetesJob(self.api_client, self.JOB_NAME, self.logger, self.namespace)
